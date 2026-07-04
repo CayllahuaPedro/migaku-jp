@@ -1,5 +1,6 @@
 node_modules/
-.output/
 .wxt/
-dist/
-*.log
+.output/
+data/raw/
+public/dict/
+public/kuromoji/
