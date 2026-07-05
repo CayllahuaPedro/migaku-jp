@@ -19,9 +19,9 @@ export function renderTokens(tokens: RenderToken[]): DocumentFragment {
     }
     const span = document.createElement('span');
     span.className = `mjp-token mjp-${t.pattern}`;
-    span.dataset.surface = t.surface;
-    span.dataset.basicForm = t.basicForm;
-    if (t.reading) span.dataset.reading = t.reading;
+    span.dataset.mjpSurface = t.surface;
+    span.dataset.mjpBasicForm = t.basicForm;
+    if (t.reading) span.dataset.mjpReading = t.reading;
     if (t.ruby) {
       const ruby = document.createElement('ruby');
       ruby.append(t.surface);

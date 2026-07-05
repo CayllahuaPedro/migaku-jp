@@ -11,8 +11,8 @@ describe('renderTokens', () => {
     div.append(frag);
     const span = div.querySelector('span.mjp-token')!;
     expect(span.classList.contains('mjp-atamadaka')).toBe(true);
-    expect((span as HTMLElement).dataset.surface).toBe('猫');
-    expect((span as HTMLElement).dataset.basicForm).toBe('猫');
+    expect((span as HTMLElement).dataset.mjpSurface).toBe('猫');
+    expect((span as HTMLElement).dataset.mjpBasicForm).toBe('猫');
     expect(span.querySelector('rt')!.textContent).toBe('ねこ');
     expect(div.childNodes[1].nodeType).toBe(Node.TEXT_NODE);
     expect(div.childNodes[1].textContent).toBe('!');
