@@ -1,6 +1,6 @@
 import { isImported, importData, lookupEntries, getAccent } from './db';
 import { katakanaToHiragana } from './kana';
-import type { Msg } from './messages';
+import type { AnnotateResult, ErrorResult, LookupResult, Msg } from './messages';
 import type { DictEntry, PitchMap } from './types';
 
 type AssetLoader = () => Promise<{ entries: DictEntry[]; pitch: PitchMap }>;
@@ -9,7 +9,7 @@ export async function handleBackgroundMessage(
   db: IDBDatabase,
   msg: Msg,
   loadAssets: AssetLoader,
-): Promise<unknown> {
+): Promise<{ ok: true } | AnnotateResult | LookupResult | ErrorResult | undefined> {
   switch (msg.type) {
     case 'ensure-imported': {
       if (!(await isImported(db))) {

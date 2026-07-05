@@ -37,7 +37,7 @@ describe('webText surface', () => {
 
     const parsed = document.querySelector('.mjp-parsed') as HTMLElement;
     expect(parsed).not.toBeNull();
-    expect(parsed.dataset.original).toBe('猫を飼う');
+    expect(parsed.dataset.mjpOriginal).toBe('猫を飼う');
     const cat = parsed.querySelector('.mjp-token') as HTMLElement;
     expect(cat.classList.contains('mjp-atamadaka')).toBe(true);
     expect(cat.querySelector('rt')!.textContent).toBe('ねこ');

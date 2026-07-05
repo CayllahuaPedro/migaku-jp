@@ -5,7 +5,11 @@ import type { DictEntry, PitchMap } from '../src/core/types';
 
 export default defineBackground(() => {
   let dbPromise: Promise<IDBDatabase> | null = null;
-  const getDb = () => (dbPromise ??= openDb());
+  const getDb = () =>
+    (dbPromise ??= openDb().catch((err) => {
+      dbPromise = null;
+      throw err;
+    }));
 
   const loadAssets = async () => {
     const [entriesRes, pitchRes] = await Promise.all([

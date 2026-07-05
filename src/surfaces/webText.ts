@@ -51,14 +51,14 @@ export async function parseTextNode(
   );
   const wrapper = document.createElement('span');
   wrapper.className = 'mjp-parsed';
-  wrapper.dataset.original = text;
+  wrapper.dataset.mjpOriginal = text;
   wrapper.append(renderTokens(buildRenderTokens(tokens, accents)));
   node.replaceWith(wrapper);
 }
 
 export function revertPage(root: ParentNode): void {
   for (const el of Array.from(root.querySelectorAll('.mjp-parsed'))) {
-    const original = (el as HTMLElement).dataset.original ?? el.textContent ?? '';
+    const original = (el as HTMLElement).dataset.mjpOriginal ?? el.textContent ?? '';
     el.replaceWith(document.createTextNode(original));
   }
 }

@@ -6,7 +6,14 @@ import {
   injectStyles,
 } from '../src/surfaces/webText';
 import { DictPopup } from '../src/ui/DictPopup';
-import type { Msg, AnnotateResult, LookupResult, TokenQuery } from '../src/core/messages';
+import {
+  isErrorResult,
+  type Msg,
+  type AnnotateResult,
+  type ErrorResult,
+  type LookupResult,
+  type TokenQuery,
+} from '../src/core/messages';
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -14,8 +21,13 @@ export default defineContentScript({
     let popup: DictPopup | null = null;
     const getPopup = () => (popup ??= new DictPopup());
 
-    const annotate = (tokens: TokenQuery[]) =>
-      browser.runtime.sendMessage({ type: 'annotate', tokens }) as Promise<AnnotateResult>;
+    const annotate = async (tokens: TokenQuery[]): Promise<AnnotateResult> => {
+      const res = (await browser.runtime.sendMessage({ type: 'annotate', tokens })) as
+        | AnnotateResult
+        | ErrorResult;
+      if (isErrorResult(res)) throw new Error(res.error);
+      return res;
+    };
 
     async function parsePage() {
       injectStyles();
@@ -30,6 +42,7 @@ export default defineContentScript({
     }
 
     document.addEventListener('click', async (ev) => {
+      if ((ev.target as Element).closest?.('.mjp-popup-host')) return;
       const el = (ev.target as Element).closest?.('.mjp-token') as HTMLElement | null;
       if (!el) {
         popup?.hide();
@@ -48,7 +61,11 @@ export default defineContentScript({
           basicForm,
           surface,
           reading,
-        })) as LookupResult;
+        })) as LookupResult | ErrorResult;
+        if (isErrorResult(res)) {
+          console.warn('[migaku-jp] lookup falló', res.error);
+          return;
+        }
         getPopup().show(el.getBoundingClientRect(), {
           word: basicForm,
           reading,

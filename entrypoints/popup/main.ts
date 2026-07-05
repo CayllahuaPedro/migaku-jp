@@ -1,3 +1,5 @@
+import { isErrorResult } from '../../src/core/messages';
+
 const statusEl = document.getElementById('status')!;
 
 async function activeTabId(): Promise<number> {
@@ -9,9 +11,17 @@ async function activeTabId(): Promise<number> {
 document.getElementById('parse')!.addEventListener('click', async () => {
   try {
     statusEl.textContent = 'Preparando diccionario (solo la primera vez tarda)…';
-    await browser.runtime.sendMessage({ type: 'ensure-imported' });
+    const importRes = await browser.runtime.sendMessage({ type: 'ensure-imported' });
+    if (isErrorResult(importRes)) {
+      statusEl.textContent = `Error: ${importRes.error}`;
+      return;
+    }
     statusEl.textContent = 'Parseando…';
-    await browser.tabs.sendMessage(await activeTabId(), { type: 'parse-page' });
+    const parseRes = await browser.tabs.sendMessage(await activeTabId(), { type: 'parse-page' });
+    if (isErrorResult(parseRes)) {
+      statusEl.textContent = `Error: ${parseRes.error}`;
+      return;
+    }
     statusEl.textContent = 'Listo';
   } catch (err) {
     statusEl.textContent = `Error: ${err}`;
@@ -20,7 +30,11 @@ document.getElementById('parse')!.addEventListener('click', async () => {
 
 document.getElementById('revert')!.addEventListener('click', async () => {
   try {
-    await browser.tabs.sendMessage(await activeTabId(), { type: 'revert-page' });
+    const res = await browser.tabs.sendMessage(await activeTabId(), { type: 'revert-page' });
+    if (isErrorResult(res)) {
+      statusEl.textContent = `Error: ${res.error}`;
+      return;
+    }
     statusEl.textContent = 'Restaurado';
   } catch (err) {
     statusEl.textContent = `Error: ${err}`;

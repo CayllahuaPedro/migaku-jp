@@ -15,3 +15,8 @@ export type Msg =
 
 export interface AnnotateResult { accents: (number | null)[] }
 export interface LookupResult { entries: DictEntry[]; accentPos: number | null }
+export interface ErrorResult { error: string }
+
+export function isErrorResult(r: unknown): r is ErrorResult {
+  return typeof r === 'object' && r !== null && 'error' in r;
+}
