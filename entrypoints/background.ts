@@ -27,7 +27,7 @@ export default defineBackground(() => {
       .then((db) => handleBackgroundMessage(db, msg, loadAssets))
       .then(sendResponse)
       .catch((err) => {
-        console.error('[migaku-jp] background error', err);
+        console.error('[yabai-jp] background error', err);
         sendResponse({ error: String(err) });
       });
     return true;

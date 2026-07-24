@@ -10,8 +10,8 @@ export default defineConfig({
     },
   }),
   manifest: {
-    name: 'Migaku-JP',
-    description: 'Japonés: furigana, pitch accent y diccionario, todo local',
+    name: 'Yabai-JP',
+    description: 'Japanese furigana, pitch accent colouring and dictionary — fully offline',
     permissions: ['activeTab'],
     web_accessible_resources: [
       { resources: ['kuromoji/*', 'dict/*'], matches: ['<all_urls>'] },
