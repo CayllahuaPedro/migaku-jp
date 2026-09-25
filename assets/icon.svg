@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="310" viewBox="56 51 310 310">
+  <defs>
+    <radialGradient id="navy-background" cx="48%" cy="51%" r="78%">
+      <stop stop-color="#142965" offset="0"/>
+      <stop stop-color="#10255f" offset="1"/>
+    </radialGradient>
+    <linearGradient id="icon-purple" x2=".78" y2="1">
+      <stop stop-color="#8555ff" offset="0"/>
+      <stop stop-color="#8950f8" offset=".55"/>
+      <stop stop-color="#7b46f4" offset="1"/>
+    </linearGradient>
+    <linearGradient id="icon-blue-wave" y2=".8">
+      <stop stop-color="#6748f8" offset="0"/>
+      <stop stop-color="#493cf0" offset="1"/>
+    </linearGradient>
+    <linearGradient id="white-lettering" x2="0" y2="1">
+      <stop stop-color="#fff" offset="0"/>
+      <stop stop-color="#f8f8ff" offset="1"/>
+    </linearGradient>
+    <clipPath id="icon-clip">
+      <rect x="64" y="64" width="294" height="284" rx="81"/>
+    </clipPath>
+    <filter id="logo-shadow" y="-12%" height="128%">
+      <feDropShadow dx="0" dy="1" flood-color="#060f3a" flood-opacity=".65" stdDeviation="2.4"/>
+    </filter>
+  </defs>
+    <g id="app-icon" filter="url(#logo-shadow)">
+      <rect x="62" y="62" width="298" height="288" rx="83" fill="#263878"/>
+      <g clip-path="url(#icon-clip)">
+        <rect x="64" y="64" width="294" height="284" fill="url(#icon-purple)"/>
+        <path id="lower-blue-wave" d="m64 211c34 12 55 57 82 85 21 22 42 31 65 30 43 0 62-33 87-72 20-30 39-46 60-49v144h-294z" fill="url(#icon-blue-wave)"/>
+        <path d="m65 146c0-46 35-81 83-81h127c45 0 82 37 82 83v119c0 44-35 80-81 80h-130c-47 0-81-34-81-81z" fill="none" stroke="#b28aff" stroke-opacity=".18" stroke-width="3"/>
+      </g>
+      <g id="hiragana-ya" aria-label="や" fill="none" stroke="url(#white-lettering)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M139 204C171 187 218 165 249 170C276 174 285 196 271 214C262 227 246 230 229 223"/>
+        <path d="M222 139Q231 149 238 162"/>
+        <path d="M165 151C173 176 181 205 192 235L209 276"/>
+      </g>
+    </g>
+</svg>
