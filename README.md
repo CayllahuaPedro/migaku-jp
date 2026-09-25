@@ -7,7 +7,7 @@ Everything runs locally. No backend, no account, no network requests — the dic
 (~44 MB of JMdict + Kanjium pitch data) is imported into IndexedDB on first run and never
 leaves the browser.
 
-<!-- TODO: demo.gif — before/after of clicking "Parse page" on a Japanese article -->
+<!-- TODO: demo.gif — before/after of clicking "Anotar página" on a Japanese article -->
 
 ## Why
 
@@ -22,11 +22,13 @@ mora count `M` of its reading:
 
 | Pattern   | Rule          | Colour              |
 |-----------|---------------|---------------------|
-| Heiban    | `N = 0`       | blue `#2e7dd1`      |
+| Heiban    | `N = 0`       | blue `#2b77c9`      |
 | Atamadaka | `N = 1`       | red `#d13b3b`       |
-| Nakadaka  | `1 < N < M`   | orange `#e08a00`    |
-| Odaka     | `N = M`       | green `#2fa356`     |
+| Nakadaka  | `1 < N < M`   | orange `#a86400`    |
+| Odaka     | `N = M`       | green `#23804a`     |
 | Unknown   | no data       | inherits page colour |
+
+All four colours meet WCAG AA (4.5:1) against a white page.
 
 Mora segmentation collapses youon (きゃ, しゅ, …) into a single mora, which is what makes
 `M` — and therefore the pattern — correct.
@@ -90,7 +92,8 @@ npm run build        # → .output/
 ```
 
 Load `.output/chrome-mv3` as an unpacked extension at `chrome://extensions`.
-Open the extension popup on a Japanese page and hit **Parse page**; **Restore** puts it back.
+Open the extension popup on a Japanese page and hit **Anotar página** (annotate page);
+**Quitar anotaciones** (remove annotations) puts it back.
 
 ## Tests
 

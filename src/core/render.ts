@@ -1,15 +1,6 @@
 import { hasJapanese } from './kana';
 import type { RenderToken } from './annotate';
 
-export const PITCH_CSS = `
-.mjp-token { cursor: pointer; }
-.mjp-heiban { color: #2e7dd1; }
-.mjp-atamadaka { color: #d13b3b; }
-.mjp-nakadaka { color: #e08a00; }
-.mjp-odaka { color: #2fa356; }
-.mjp-token rt { font-size: 0.5em; user-select: none; }
-`;
-
 export function renderTokens(tokens: RenderToken[]): DocumentFragment {
   const frag = document.createDocumentFragment();
   for (const t of tokens) {

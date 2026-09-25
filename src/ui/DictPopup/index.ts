@@ -16,9 +16,8 @@ export class DictPopup {
   show(anchor: DOMRect, data: PopupData): void {
     this.root.innerHTML = `<style>${POPUP_CSS}</style>${renderPopupHtml(data)}`;
     const popup = this.root.querySelector('.mjp-popup') as HTMLElement;
-    const top = anchor.bottom + 6;
-    const left = Math.max(8, Math.min(anchor.left, window.innerWidth - 336));
-    popup.style.top = `${top}px`;
+    const left = Math.max(8, Math.min(anchor.left, window.innerWidth - popup.offsetWidth - 8));
+    popup.style.top = `${anchor.bottom + 8}px`;
     popup.style.left = `${left}px`;
   }
 

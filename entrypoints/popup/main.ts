@@ -1,42 +1,68 @@
 import { isErrorResult } from '../../src/core/messages';
+import { FONTS_CSS_PATH } from '../../src/ui/theme';
+import { linkFontStylesheet } from '../../src/ui/fonts';
+import { POPUP_PAGE_CSS } from './styles';
+
+type StatusState = 'busy' | 'ok' | 'error';
+
+const TAB_UNREACHABLE =
+  'No se puede anotar esta pestaña. Si la abriste antes de instalar la extensión, recárgala.';
+
+linkFontStylesheet(browser.runtime.getURL(FONTS_CSS_PATH));
+const style = document.createElement('style');
+style.textContent = POPUP_PAGE_CSS;
+document.head.append(style);
 
 const statusEl = document.getElementById('status')!;
+const statusTextEl = document.getElementById('status-text')!;
 
-async function activeTabId(): Promise<number> {
+function setStatus(state: StatusState, text: string): void {
+  statusEl.dataset.state = state;
+  statusTextEl.textContent = text;
+}
+
+function fail(text: string, detail: unknown): void {
+  console.error('[yabai-jp]', detail);
+  setStatus('error', text);
+}
+
+async function sendToActiveTab(type: 'parse-page' | 'revert-page'): Promise<unknown> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id == null) throw new Error('No hay pestaña activa');
-  return tab.id;
+  if (tab?.id == null) throw new Error('No active tab');
+  return browser.tabs.sendMessage(tab.id, { type });
 }
 
 document.getElementById('parse')!.addEventListener('click', async () => {
+  setStatus('busy', 'Cargando el diccionario. La primera vez tarda más.');
+  const importRes = await browser.runtime.sendMessage({ type: 'ensure-imported' }).catch((err) => ({
+    error: String(err),
+  }));
+  if (isErrorResult(importRes)) {
+    fail('No se pudo cargar el diccionario. Inténtalo de nuevo.', importRes.error);
+    return;
+  }
+  setStatus('busy', 'Anotando la página…');
   try {
-    statusEl.textContent = 'Preparando diccionario (solo la primera vez tarda)…';
-    const importRes = await browser.runtime.sendMessage({ type: 'ensure-imported' });
-    if (isErrorResult(importRes)) {
-      statusEl.textContent = `Error: ${importRes.error}`;
+    const res = await sendToActiveTab('parse-page');
+    if (isErrorResult(res)) {
+      fail('No se pudo anotar la página. Inténtalo de nuevo.', res.error);
       return;
     }
-    statusEl.textContent = 'Parseando…';
-    const parseRes = await browser.tabs.sendMessage(await activeTabId(), { type: 'parse-page' });
-    if (isErrorResult(parseRes)) {
-      statusEl.textContent = `Error: ${parseRes.error}`;
-      return;
-    }
-    statusEl.textContent = 'Listo';
+    setStatus('ok', 'Página anotada');
   } catch (err) {
-    statusEl.textContent = `Error: ${err}`;
+    fail(TAB_UNREACHABLE, err);
   }
 });
 
 document.getElementById('revert')!.addEventListener('click', async () => {
   try {
-    const res = await browser.tabs.sendMessage(await activeTabId(), { type: 'revert-page' });
+    const res = await sendToActiveTab('revert-page');
     if (isErrorResult(res)) {
-      statusEl.textContent = `Error: ${res.error}`;
+      fail('No se pudieron quitar las anotaciones. Inténtalo de nuevo.', res.error);
       return;
     }
-    statusEl.textContent = 'Restaurado';
+    setStatus('ok', 'Anotaciones quitadas');
   } catch (err) {
-    statusEl.textContent = `Error: ${err}`;
+    fail(TAB_UNREACHABLE, err);
   }
 });

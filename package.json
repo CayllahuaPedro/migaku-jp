@@ -9,12 +9,14 @@
     "test:watch": "vitest",
     "build:dict": "tsx scripts/build-dict.ts",
     "e2e": "node scripts/e2e-smoke.mjs",
-    "postinstall": "wxt prepare && node scripts/copy-kuromoji.mjs"
+    "postinstall": "node scripts/copy-kuromoji.mjs && node scripts/copy-fonts.mjs && wxt prepare"
   },
   "dependencies": {
     "kuromoji": "^0.1.2"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/zen-maru-gothic": "^5.3.0",
     "@types/kuromoji": "^0.1.3",
     "fake-indexeddb": "^6.0.0",
     "happy-dom": "^15.0.0",

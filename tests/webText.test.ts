@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { findJapaneseTextNodes, parseTextNode, revertPage } from '../src/surfaces/webText';
+import {
+  findJapaneseTextNodes,
+  parseTextNode,
+  revertPage,
+  injectStyles,
+} from '../src/surfaces/webText';
 
 vi.mock('../src/core/tokenizer', () => ({
   tokenize: vi.fn(async (text: string) => {
@@ -51,5 +56,16 @@ describe('webText surface', () => {
     document.body.innerHTML = '<p>猫</p>';
     await parseTextNode(findJapaneseTextNodes(document.body)[0], annotate);
     expect(findJapaneseTextNodes(document.body)).toEqual([]);
+  });
+
+  it('injects pitch styles and the bundled font stylesheet once', () => {
+    document.head.innerHTML = '';
+    injectStyles('chrome-extension://abc/fonts/fonts.css');
+    injectStyles('chrome-extension://abc/fonts/fonts.css');
+    expect(document.querySelectorAll('#mjp-styles')).toHaveLength(1);
+    const links = document.querySelectorAll<HTMLLinkElement>('link#mjp-fonts');
+    expect(links).toHaveLength(1);
+    expect(links[0].rel).toBe('stylesheet');
+    expect(links[0].getAttribute('href')).toBe('chrome-extension://abc/fonts/fonts.css');
   });
 });

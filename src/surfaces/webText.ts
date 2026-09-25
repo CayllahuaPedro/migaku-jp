@@ -1,6 +1,8 @@
 import { tokenize } from '../core/tokenizer';
 import { buildRenderTokens } from '../core/annotate';
-import { renderTokens, PITCH_CSS } from '../core/render';
+import { renderTokens } from '../core/render';
+import { PITCH_COLOR_CSS } from '../ui/theme';
+import { linkFontStylesheet } from '../ui/fonts';
 import { hasJapanese } from '../core/kana';
 import type { TokenQuery, AnnotateResult } from '../core/messages';
 
@@ -63,10 +65,30 @@ export function revertPage(root: ParentNode): void {
   }
 }
 
-export function injectStyles(): void {
+const PAGE_CSS = `
+.mjp-token {
+  cursor: pointer;
+  text-decoration: underline 2px transparent;
+  text-underline-offset: 0.3em;
+  transition: text-decoration-color 0.12s;
+}
+.mjp-token:hover { text-decoration-color: currentColor; }
+${PITCH_COLOR_CSS}
+.mjp-token rt {
+  font-family: 'Yabai Maru', sans-serif;
+  font-size: 0.55em;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  user-select: none;
+}
+`;
+
+export function injectStyles(fontsHref: string): void {
+  linkFontStylesheet(fontsHref);
   if (document.getElementById('mjp-styles')) return;
   const style = document.createElement('style');
   style.id = 'mjp-styles';
-  style.textContent = PITCH_CSS;
+  style.textContent = PAGE_CSS;
   document.head.append(style);
 }

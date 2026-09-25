@@ -25,9 +25,54 @@ describe('renderPopupHtml', () => {
     expect(html).toContain('atamadaka');
     expect(html).toContain('cat');
   });
+  it('shows the pitch pattern as a labelled pill with the accent position', () => {
+    const html = renderPopupHtml(data);
+    expect(html).toMatch(/class="mjp-pill mjp-atamadaka"[^>]*>[\s\S]*Atamadaka[\s\S]*1/);
+    expect(html).toContain('<span class="mjp-pill-label">Atamadaka</span>');
+    expect(html).not.toContain('mjp-pill-dot');
+  });
+  it('shows an unknown pill when there is no pitch data', () => {
+    const html = renderPopupHtml({ ...data, accentPos: null });
+    expect(html).toContain('mjp-pill mjp-unknown');
+    expect(html).toContain('Sin datos de acento');
+  });
+  it('renders senses as a numbered list with one chip per part of speech', () => {
+    const html = renderPopupHtml({
+      ...data,
+      entries: [{ ...data.entries[0], senses: [{ pos: ['n', 'adj-no'], gloss: ['cat'] }] }],
+    });
+    expect(html).toContain('<ol class="mjp-senses">');
+    expect(html.match(/class="mjp-chip"/g)).toHaveLength(2);
+  });
+  it('shows up to five senses of the first entry and counts the hidden ones', () => {
+    const sense = (g: string) => ({ pos: ['n'], gloss: [g] });
+    const html = renderPopupHtml({
+      ...data,
+      entries: [
+        { ...data.entries[0], senses: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(sense) },
+        { ...data.entries[0], id: '2', senses: [sense('other')] },
+      ],
+    });
+    expect(html.match(/<li>/g)).toHaveLength(5);
+    expect(html).not.toContain('>f<');
+    expect(html).not.toContain('other');
+    expect(html).toContain('3 acepciones más');
+    expect(html).not.toContain('+3');
+  });
+  it('uses the singular when only one sense is hidden', () => {
+    const sense = (g: string) => ({ pos: ['n'], gloss: [g] });
+    const html = renderPopupHtml({
+      ...data,
+      entries: [{ ...data.entries[0], senses: ['a', 'b', 'c', 'd', 'e', 'f'].map(sense) }],
+    });
+    expect(html).toContain('1 acepción más');
+  });
+  it('omits the hidden count when every sense is shown', () => {
+    expect(renderPopupHtml(data)).not.toContain('más</p>');
+  });
   it('shows fallback when there are no entries', () => {
     const html = renderPopupHtml({ ...data, entries: [] });
-    expect(html).toContain('Sin definición');
+    expect(html).toContain('No está en el diccionario');
   });
   it('escapes html in glosses', () => {
     const evil = {

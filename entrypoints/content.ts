@@ -6,6 +6,7 @@ import {
   injectStyles,
 } from '../src/surfaces/webText';
 import { DictPopup } from '../src/ui/DictPopup';
+import { FONTS_CSS_PATH } from '../src/ui/theme';
 import {
   isErrorResult,
   type Msg,
@@ -30,7 +31,7 @@ export default defineContentScript({
     };
 
     async function parsePage() {
-      injectStyles();
+      injectStyles(browser.runtime.getURL(FONTS_CSS_PATH));
       await initTokenizer(browser.runtime.getURL('/kuromoji/'));
       for (const node of findJapaneseTextNodes(document.body)) {
         try {

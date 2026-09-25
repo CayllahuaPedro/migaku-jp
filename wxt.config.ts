@@ -14,7 +14,7 @@ export default defineConfig({
     description: 'Japanese furigana, pitch accent colouring and dictionary — fully offline',
     permissions: ['activeTab'],
     web_accessible_resources: [
-      { resources: ['kuromoji/*', 'dict/*'], matches: ['<all_urls>'] },
+      { resources: ['kuromoji/*', 'dict/*', 'fonts/*'], matches: ['<all_urls>'] },
     ],
   },
 });
