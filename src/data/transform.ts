@@ -1,4 +1,4 @@
-import type { DictEntry, PitchMap } from '../core/types';
+import type { DictEntry, PitchMap, PosTagMap } from '../core/types';
 
 interface RawWord {
   id: string;
@@ -22,6 +22,11 @@ export function transformJmdict(words: RawWord[]): DictEntry[] {
       })),
     };
   });
+}
+
+export function transformPosTags(tags: PosTagMap, words: RawWord[]): PosTagMap {
+  const used = new Set(words.flatMap((w) => w.sense.flatMap((s) => s.partOfSpeech)));
+  return Object.fromEntries(Object.entries(tags).filter(([code]) => used.has(code)));
 }
 
 export function transformPitch(accentsTxt: string): PitchMap {

@@ -1,4 +1,4 @@
-import type { DictEntry } from '../../core/types';
+import type { DictEntry, PosTagMap } from '../../core/types';
 import { classifyPitch, type PitchPattern } from '../../core/pitch';
 import { PITCH_COLOR_CSS, THEME_VARS } from '../theme';
 
@@ -7,6 +7,7 @@ export interface PopupData {
   reading?: string;
   accentPos: number | null;
   entries: DictEntry[];
+  posTags?: PosTagMap;
 }
 
 const PITCH_LABELS: Record<PitchPattern, string> = {
@@ -19,10 +20,13 @@ const PITCH_LABELS: Record<PitchPattern, string> = {
 
 const MAX_SENSES = 5;
 
-const escapeHtml =(s: string) =>
+const escapeHtml = (s: string) =>
   s.replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!,
   );
+
+const renderChip = (code: string, description?: string) =>
+  `<span class="mjp-chip"${description ? ` title="${escapeHtml(description)}"` : ''}>${escapeHtml(code)}</span>`;
 
 export function renderPopupHtml(data: PopupData): string {
   const pattern = data.reading
@@ -38,7 +42,7 @@ export function renderPopupHtml(data: PopupData): string {
     .map(
       (s) => `
       <li>
-        ${s.pos.map((p) => `<span class="mjp-chip">${escapeHtml(p)}</span>`).join('')}
+        ${s.pos.map((p) => renderChip(p, data.posTags?.[p])).join('')}
         <span class="mjp-gloss">${escapeHtml(s.gloss.join('; '))}</span>
       </li>`,
     )
@@ -152,6 +156,7 @@ ${PITCH_COLOR_CSS}
   font: 600 10px/1.6 var(--mjp-font-body);
   vertical-align: 1px;
 }
+.mjp-chip[title] { cursor: help; }
 .mjp-gloss { color: var(--mjp-text); }
 .mjp-more { margin: 10px 0 0 26px; color: var(--mjp-muted); font-size: 12px; }
 .mjp-nodef { margin: 0; color: var(--mjp-muted); font-style: italic; }

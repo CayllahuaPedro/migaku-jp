@@ -12,3 +12,5 @@ export interface DictEntry {
 }
 
 export type PitchMap = Record<string, number>;
+
+export type PosTagMap = Record<string, string>;

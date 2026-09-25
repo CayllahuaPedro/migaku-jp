@@ -72,6 +72,7 @@ export default defineContentScript({
           reading,
           accentPos: res.accentPos,
           entries: res.entries ?? [],
+          posTags: res.posTags,
         });
       } catch (err) {
         console.warn('[yabai-jp] lookup falló', err);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { transformJmdict, transformPitch } from '../src/data/transform';
+import { transformJmdict, transformPitch, transformPosTags } from '../src/data/transform';
 
 describe('transformJmdict', () => {
   it('flattens a jmdict-simplified word', () => {
@@ -22,6 +22,28 @@ describe('transformJmdict', () => {
         senses: [{ pos: ['n'], gloss: ['cat', 'feline'] }],
       },
     ]);
+  });
+});
+
+describe('transformPosTags', () => {
+  it('keeps only the tags used as a part of speech', () => {
+    const words = [
+      {
+        id: '1',
+        kanji: [],
+        kana: [{ text: 'ねこ' }],
+        sense: [{ partOfSpeech: ['n', 'adj-no'], gloss: [{ text: 'cat' }] }],
+      },
+    ];
+    const tags = {
+      n: 'noun (common) (futsuumeishi)',
+      'adj-no': "nouns which may take the genitive case particle 'no'",
+      ktb: 'Kantou-ben',
+    };
+    expect(transformPosTags(tags, words)).toEqual({
+      n: 'noun (common) (futsuumeishi)',
+      'adj-no': "nouns which may take the genitive case particle 'no'",
+    });
   });
 });
 

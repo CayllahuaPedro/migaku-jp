@@ -1,4 +1,4 @@
-import type { DictEntry } from './types';
+import type { DictEntry, PosTagMap } from './types';
 
 export interface TokenQuery {
   basicForm: string;
@@ -14,7 +14,11 @@ export type Msg =
   | { type: 'revert-page' };
 
 export interface AnnotateResult { accents: (number | null)[] }
-export interface LookupResult { entries: DictEntry[]; accentPos: number | null }
+export interface LookupResult {
+  entries: DictEntry[];
+  accentPos: number | null;
+  posTags: PosTagMap;
+}
 export interface ErrorResult { error: string }
 
 export function isErrorResult(r: unknown): r is ErrorResult {

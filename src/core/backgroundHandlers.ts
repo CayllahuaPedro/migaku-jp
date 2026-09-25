@@ -1,15 +1,17 @@
 import { isImported, importData, lookupEntries, getAccent } from './db';
 import { katakanaToHiragana } from './kana';
 import type { AnnotateResult, ErrorResult, LookupResult, Msg } from './messages';
-import type { DictEntry, PitchMap } from './types';
+import type { DictEntry, PitchMap, PosTagMap } from './types';
 
 type AssetLoader = () => Promise<{ entries: DictEntry[]; pitch: PitchMap }>;
+type PosTagLoader = () => Promise<PosTagMap>;
 
 export async function handleBackgroundMessage(
   db: IDBDatabase,
   msg: Msg,
   loadAssets: AssetLoader,
-): Promise<{ ok: true } | AnnotateResult | LookupResult | ErrorResult | undefined> {
+  loadPosTags: PosTagLoader,
+):Promise<{ ok: true } | AnnotateResult | LookupResult | ErrorResult | undefined> {
   switch (msg.type) {
     case 'ensure-imported': {
       if (!(await isImported(db))) {
@@ -40,7 +42,14 @@ export async function handleBackgroundMessage(
         msg.basicForm,
         msg.reading ? katakanaToHiragana(msg.reading) : undefined,
       );
-      return { entries, accentPos };
+      const allPosTags = await loadPosTags();
+      const posTags = Object.fromEntries(
+        entries
+          .flatMap((e) => e.senses.flatMap((s) => s.pos))
+          .filter((code) => code in allPosTags)
+          .map((code) => [code, allPosTags[code]]),
+      );
+      return { entries, accentPos, posTags };
     }
     default:
       return undefined;

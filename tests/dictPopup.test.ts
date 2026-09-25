@@ -44,6 +44,17 @@ describe('renderPopupHtml', () => {
     expect(html).toContain('<ol class="mjp-senses">');
     expect(html.match(/class="mjp-chip"/g)).toHaveLength(2);
   });
+  it('shows the pos description as a tooltip on its chip, escaped', () => {
+    const html = renderPopupHtml({
+      ...data,
+      entries: [{ ...data.entries[0], senses: [{ pos: ['n', 'adj-no'], gloss: ['cat'] }] }],
+      posTags: { 'adj-no': `nouns which may take the "no" particle <x>` },
+    });
+    expect(html).toContain(
+      '<span class="mjp-chip" title="nouns which may take the &quot;no&quot; particle &lt;x&gt;">adj-no</span>',
+    );
+    expect(html).toContain('<span class="mjp-chip">n</span>');
+  });
   it('shows up to five senses of the first entry and counts the hidden ones', () => {
     const sense = (g: string) => ({ pos: ['n'], gloss: [g] });
     const html = renderPopupHtml({

@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { transformJmdict, transformPitch } from '../src/data/transform';
+import { transformJmdict, transformPitch, transformPosTags } from '../src/data/transform';
 
 const JMDICT_RAW = 'data/raw/jmdict-eng.json';
 const ACCENTS_RAW = 'data/raw/accents.txt';
@@ -17,6 +17,10 @@ const raw = JSON.parse(readFileSync(JMDICT_RAW, 'utf8'));
 const entries = transformJmdict(raw.words);
 writeFileSync('public/dict/jmdict.min.json', JSON.stringify(entries));
 console.log(`jmdict.min.json: ${entries.length} entradas`);
+
+const posTags = transformPosTags(raw.tags, raw.words);
+writeFileSync('public/dict/pos-tags.json', JSON.stringify(posTags));
+console.log(`pos-tags.json: ${Object.keys(posTags).length} categorías`);
 
 const pitch = transformPitch(readFileSync(ACCENTS_RAW, 'utf8'));
 writeFileSync('public/dict/pitch.json', JSON.stringify(pitch));
