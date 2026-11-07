@@ -78,4 +78,25 @@ describe('syncOverlay', () => {
     video.dispatchEvent(new Event('timeupdate'));
     expect(spy).toHaveBeenCalledTimes(2);
   });
+
+  it('renders the active cue on attach without waiting for playback events', () => {
+    const c = document.createElement('div');
+    const video = document.createElement('video');
+    Object.defineProperty(video, 'currentTime', { value: 1, configurable: true });
+    const o = new SubtitleOverlay(c);
+    const spy = vi.spyOn(o, 'setLines');
+    syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }]);
+    expect(spy).toHaveBeenCalledWith('あ', 'a');
+  });
+
+  it('clears lines left by a previous attach when no cue is active', () => {
+    const c = document.createElement('div');
+    const video = document.createElement('video');
+    Object.defineProperty(video, 'currentTime', { value: 5, configurable: true });
+    const o = new SubtitleOverlay(c);
+    o.setLines('古い', 'old');
+    const spy = vi.spyOn(o, 'setLines');
+    syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }]);
+    expect(spy).toHaveBeenCalledWith(null, null);
+  });
 });

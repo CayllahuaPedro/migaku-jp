@@ -7,8 +7,8 @@ export function syncOverlay(
   primary: Cue[],
   secondary: Cue[],
 ): () => void {
-  let lastPrimary: string | null = null;
-  let lastSecondary: string | null = null;
+  let lastPrimary: string | null | undefined;
+  let lastSecondary: string | null | undefined;
   let frame = 0;
 
   const update = () => {
@@ -29,6 +29,7 @@ export function syncOverlay(
     frame = requestAnimationFrame(tick);
   };
 
+  update();
   video.addEventListener('timeupdate', update);
   video.addEventListener('seeked', update);
   video.addEventListener('play', onPlay);
