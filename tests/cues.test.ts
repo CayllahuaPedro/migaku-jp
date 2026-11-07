@@ -16,4 +16,6 @@ describe('activeCue', () => {
     expect(activeCue(cues, 0.5)?.text).toBe('a');
   });
   it('returns null for empty cues', () => expect(activeCue([], 1)).toBeNull());
+  it('finds an earlier long cue when a later short one has ended', () =>
+    expect(activeCue([{ start: 0, end: 10, text: 'long' }, { start: 1, end: 2, text: 'short' }], 5)?.text).toBe('long'));
 });

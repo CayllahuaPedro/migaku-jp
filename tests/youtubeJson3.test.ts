@@ -30,4 +30,11 @@ describe('parseJson3', () => {
       { tStartMs: 2000, dDurationMs: 500, segs: [{ utf8: 'b' }] },
       { tStartMs: 1000, dDurationMs: 500, segs: [{ utf8: 'a' }] },
     ] })).map((c) => c.text)).toEqual(['a', 'b']));
+
+  it('drops punctuation-only events but keeps real lines', () =>
+    expect(parseJson3(JSON.stringify({ events: [
+      { tStartMs: 0, dDurationMs: 500, segs: [{ utf8: '。' }] },
+      { tStartMs: 600, dDurationMs: 500, segs: [{ utf8: '\n' }, { utf8: '、' }] },
+      { tStartMs: 1200, dDurationMs: 500, segs: [{ utf8: 'はい' }] },
+    ] }))).toEqual([{ start: 1.2, end: 1.7, text: 'はい' }]));
 });

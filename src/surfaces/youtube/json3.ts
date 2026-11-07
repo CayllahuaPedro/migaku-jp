@@ -20,7 +20,7 @@ export function parseJson3(raw: string): Cue[] {
     if (!event.segs || typeof event.tStartMs !== 'number') continue;
     const text = event.segs.map((seg) => seg.utf8 ?? '').join('').trim();
     const duration = event.dDurationMs ?? 0;
-    if (!text || duration <= 0) continue;
+    if (!/[\p{L}\p{N}]/u.test(text) || duration <= 0) continue;
     cues.push({ start: event.tStartMs / 1000, end: (event.tStartMs + duration) / 1000, text });
   }
   return cues.sort((a, b) => a.start - b.start);
