@@ -20,6 +20,8 @@ export interface SessionDeps {
 }
 
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
+const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 3;
 
 const warn = (message: string, ...details: unknown[]) => console.warn(`[yabai-jp] ${message}`, ...details);
 
@@ -81,6 +83,8 @@ export class YoutubeSession {
   private overlay: SubtitleOverlay | null = null;
   private detach: (() => void) | null = null;
   private jaCues: Cue[] | null = null;
+  private retries = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private deps: SessionDeps,
@@ -142,11 +146,14 @@ export class YoutubeSession {
   private async select(): Promise<void> {
     this.selection = selectTracks(this.tracks, this.settings.nativeLang);
     if (!this.selection) return this.abandonVideo();
-    if (!this.ensured) {
-      this.ensured = true;
-      this.send({ source: BRIDGE_SOURCE, type: 'ensure-captions', track: this.selection.ja });
-    }
+    this.ensureCaptions();
     return this.maybeStart();
+  }
+
+  private ensureCaptions(): void {
+    if (this.ensured || !this.selection) return;
+    this.ensured = true;
+    this.send({ source: BRIDGE_SOURCE, type: 'ensure-captions', track: this.selection.ja });
   }
 
   private async maybeStart(): Promise<void> {
@@ -160,11 +167,38 @@ export class YoutubeSession {
       urls.translation ? this.fetchCues(urls.translation, 'translation') : null,
     ]);
     if (generation !== this.generation) return;
-    if (!jaCues?.length) {
+    if (!jaCues?.length) return this.retryOrAbandon();
+    this.show(jaCues, translationCues ?? []);
+  }
+
+  private retryOrAbandon(): void {
+    if (this.retries >= MAX_RETRIES) {
       warn('no Japanese cues for this video');
       return this.abandonVideo();
     }
-    this.show(jaCues, translationCues ?? []);
+    this.retries++;
+    this.started = false;
+    this.template = null;
+    this.later(() => {
+      this.restoreCaptions();
+      this.ensureCaptions();
+      this.later(() => {
+        if (!this.started) this.retryOrAbandon();
+      });
+    });
+  }
+
+  private later(action: () => void): void {
+    this.cancelRetry();
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      action();
+    }, RETRY_DELAY_MS);
+  }
+
+  private cancelRetry(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
   }
 
   private async refetchTranslation(): Promise<void> {
@@ -216,6 +250,7 @@ export class YoutubeSession {
   }
 
   private abandonVideo(): void {
+    this.cancelRetry();
     this.resetVideoView();
     this.restoreCaptions();
   }
@@ -228,6 +263,7 @@ export class YoutubeSession {
     this.template = null;
     this.selection = null;
     this.started = false;
+    this.retries = 0;
   }
 
   private resetVideoView(): void {

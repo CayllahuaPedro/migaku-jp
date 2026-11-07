@@ -157,21 +157,79 @@ describe('YoutubeSession', () => {
     expect(noJapanese.deps.setNativeHidden).toHaveBeenLastCalledWith(false);
     expect(noJapanese.sent()).not.toContain('ensure-captions');
 
-    const failing = setup({ ja: new Error('403'), en: json3('Hello') });
-    failing.session.onNavigate('v1');
-    await failing.session.onMessage(urlMsg('v1'));
-    await failing.session.onMessage(tracksMsg('v1', [ja, en]));
-    expect(failing.deps.attach).not.toHaveBeenCalled();
-    expect(failing.sent()).toEqual(['request-state', 'ensure-captions', 'restore-captions']);
-    expect(failing.deps.setNativeHidden).toHaveBeenLastCalledWith(false);
-    expect(warned()).toBe(true);
+  });
 
-    const empty = setup({ ja: json3('♪'), en: json3('Hello') });
-    empty.session.onNavigate('v1');
-    await empty.session.onMessage(urlMsg('v1'));
-    await empty.session.onMessage(tracksMsg('v1', [ja, en]));
-    expect(empty.deps.attach).not.toHaveBeenCalled();
-    expect(empty.sent()).toContain('restore-captions');
+  describe('when the Japanese track yields no cues', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    const freshUrlMsg = (videoId: string): ToIsolated => ({
+      ...urlMsg(videoId),
+      url: `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&pot=FRESH&fmt=srv3`,
+    } as ToIsolated);
+
+    it('reloads the player captions after a delay and starts again from the next template', async () => {
+      const responses: Record<string, string> = { ja: '', en: json3('Hello') };
+      const { session, deps, overlays, sent } = setup(responses);
+      session.onNavigate('v1');
+      await session.onMessage(urlMsg('v1'));
+      await session.onMessage(tracksMsg('v1', [ja, en]));
+      expect(deps.attach).not.toHaveBeenCalled();
+      expect(sent()).toEqual(['request-state', 'ensure-captions']);
+
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(sent()).toEqual(['request-state', 'ensure-captions', 'restore-captions', 'ensure-captions']);
+      expect(deps.fetchText).toHaveBeenCalledTimes(2);
+
+      responses.ja = json3('こんにちは');
+      await session.onMessage(freshUrlMsg('v1'));
+      expect(deps.fetchText.mock.calls.slice(2).every(([url]) => url.includes('pot=FRESH'))).toBe(true);
+      expect(deps.attach).toHaveBeenCalledWith(overlays[0], cues('こんにちは'), cues('Hello'));
+      await vi.runAllTimersAsync();
+      expect(sent().at(-1)).toBe('ensure-captions');
+    });
+
+    it('gives up and restores captions after three retries', async () => {
+      const failing = setup({ ja: new Error('403'), en: json3('Hello') });
+      failing.session.onNavigate('v1');
+      await failing.session.onMessage(urlMsg('v1'));
+      await failing.session.onMessage(tracksMsg('v1', [ja, en]));
+      for (let retry = 0; retry < 3; retry++) {
+        await vi.advanceTimersByTimeAsync(2000);
+        await failing.session.onMessage(freshUrlMsg('v1'));
+      }
+      expect(failing.deps.attach).not.toHaveBeenCalled();
+      expect(failing.sent()).toEqual([
+        'request-state',
+        'ensure-captions',
+        ...Array(3).fill(['restore-captions', 'ensure-captions']).flat(),
+        'restore-captions',
+      ]);
+      expect(failing.deps.setNativeHidden).toHaveBeenLastCalledWith(false);
+      expect(warned()).toBe(true);
+    });
+
+    it('gives up when the player never sends another template', async () => {
+      const empty = setup({ ja: json3('♪'), en: json3('Hello') });
+      empty.session.onNavigate('v1');
+      await empty.session.onMessage(urlMsg('v1'));
+      await empty.session.onMessage(tracksMsg('v1', [ja, en]));
+      await vi.runAllTimersAsync();
+      expect(empty.deps.attach).not.toHaveBeenCalled();
+      expect(empty.deps.fetchText).toHaveBeenCalledTimes(2);
+      expect(empty.sent().at(-1)).toBe('restore-captions');
+    });
+
+    it('cancels a pending retry on navigation', async () => {
+      const { session, deps, sent } = setup({ ja: '', en: json3('Hello') });
+      session.onNavigate('v1');
+      await session.onMessage(urlMsg('v1'));
+      await session.onMessage(tracksMsg('v1', [ja, en]));
+      session.onNavigate('v2');
+      deps.send.mockClear();
+      await vi.runAllTimersAsync();
+      expect(sent()).toEqual([]);
+    });
   });
 
   it('discards results from a previous video after navigation', async () => {
