@@ -1,0 +1,228 @@
+import type { Cue } from '../../core/cues';
+import type { Settings } from '../../core/settings';
+import type { SubtitleOverlay } from '../../ui/SubtitleOverlay';
+import { BRIDGE_SOURCE, type ToIsolated, type ToMain } from './bridge';
+import { parseJson3 } from './json3';
+import {
+  buildTrackUrl,
+  selectTracks,
+  type CaptionTrack,
+  type TrackSelection,
+  type TranslationSource,
+} from './tracks';
+
+export interface SessionDeps {
+  fetchText(url: string): Promise<string>;
+  send(msg: ToMain): void;
+  mountOverlay(): SubtitleOverlay | null;
+  attach(overlay: SubtitleOverlay, primary: Cue[], secondary: Cue[]): () => void;
+  setNativeHidden(hidden: boolean): void;
+}
+
+const warn = (message: string, ...details: unknown[]) => console.warn(`[yabai-jp] ${message}`, ...details);
+
+function guard(label: string, action: () => void): boolean {
+  try {
+    action();
+    return true;
+  } catch (error) {
+    warn(label, error);
+    return false;
+  }
+}
+
+export class YoutubeSession {
+  private videoId: string | null = null;
+  private generation = 0;
+  private tracksSeen = false;
+  private tracks: CaptionTrack[] = [];
+  private template: string | null = null;
+  private selection: TrackSelection | null = null;
+  private started = false;
+  private ensured = false;
+  private overlay: SubtitleOverlay | null = null;
+  private detach: (() => void) | null = null;
+  private jaCues: Cue[] | null = null;
+
+  constructor(
+    private deps: SessionDeps,
+    private settings: Settings,
+  ) {}
+
+  async onMessage(msg: ToIsolated): Promise<void> {
+    if (!this.settings.youtubeDualSubs || msg.videoId !== this.videoId) return;
+    if (msg.type === 'timedtext-url') {
+      this.template = msg.url;
+      return this.maybeStart();
+    }
+    if (this.tracksSeen) return;
+    this.tracksSeen = true;
+    if (msg.isLive) return this.abandonVideo();
+    this.tracks = msg.tracks;
+    return this.select();
+  }
+
+  onNavigate(videoId: string | null): void {
+    if (videoId === this.videoId) return;
+    this.resetVideo();
+    this.videoId = videoId;
+    this.requestState();
+  }
+
+  async onSettings(settings: Settings): Promise<void> {
+    const previous = this.settings;
+    this.settings = settings;
+    if (!settings.youtubeDualSubs) {
+      if (previous.youtubeDualSubs) this.resetVideo();
+      return;
+    }
+    if (!previous.youtubeDualSubs) {
+      this.resetVideo();
+      this.requestState();
+      return;
+    }
+    if (settings.nativeLang === previous.nativeLang) return;
+    if (this.overlay && this.jaCues) return this.refetchTranslation();
+    if (!this.tracksSeen) return;
+    this.generation++;
+    this.started = false;
+    return this.select();
+  }
+
+  teardown(): void {
+    this.resetVideo();
+    this.videoId = null;
+  }
+
+  private requestState(): void {
+    if (!this.settings.youtubeDualSubs || !this.videoId) return;
+    this.send({ source: BRIDGE_SOURCE, type: 'request-state' });
+  }
+
+  private async select(): Promise<void> {
+    this.selection = selectTracks(this.tracks, this.settings.nativeLang);
+    if (!this.selection) return this.abandonVideo();
+    if (!this.ensured) {
+      this.ensured = true;
+      this.send({ source: BRIDGE_SOURCE, type: 'ensure-captions', track: this.selection.ja });
+    }
+    return this.maybeStart();
+  }
+
+  private async maybeStart(): Promise<void> {
+    if (this.started || !this.selection || !this.template) return;
+    this.started = true;
+    const generation = this.generation;
+    const { ja, translation } = this.selection;
+    const template = this.template;
+    const [jaCues, translationCues] = await Promise.all([
+      this.fetchCues(buildTrackUrl(template, { lang: ja.languageCode, kind: ja.kind })),
+      this.fetchTranslation(template, translation),
+    ]);
+    if (generation !== this.generation) return;
+    if (!jaCues?.length) {
+      warn('no Japanese cues for this video');
+      return this.abandonVideo();
+    }
+    this.show(jaCues, translationCues ?? []);
+  }
+
+  private async refetchTranslation(): Promise<void> {
+    const generation = ++this.generation;
+    this.selection = selectTracks(this.tracks, this.settings.nativeLang);
+    if (!this.selection || !this.template) return this.abandonVideo();
+    const translationCues = await this.fetchTranslation(this.template, this.selection.translation);
+    if (generation !== this.generation || !this.overlay || !this.jaCues) return;
+    this.runDetach();
+    this.attachCues(this.overlay, this.jaCues, translationCues ?? []);
+  }
+
+  private show(jaCues: Cue[], translationCues: Cue[]): void {
+    const overlay = this.mountOverlay();
+    if (!overlay) return this.abandonVideo();
+    this.overlay = overlay;
+    this.jaCues = jaCues;
+    this.setNativeHidden(true);
+    this.attachCues(overlay, jaCues, translationCues);
+  }
+
+  private mountOverlay(): SubtitleOverlay | null {
+    try {
+      const overlay = this.deps.mountOverlay();
+      if (!overlay) warn('no player to mount the subtitle overlay on');
+      return overlay;
+    } catch (error) {
+      warn('could not mount the subtitle overlay', error);
+      return null;
+    }
+  }
+
+  private attachCues(overlay: SubtitleOverlay, jaCues: Cue[], translationCues: Cue[]): void {
+    const attached = guard('could not attach the subtitle overlay', () => {
+      this.detach = this.deps.attach(overlay, jaCues, translationCues);
+    });
+    if (!attached) this.abandonVideo();
+  }
+
+  private fetchTranslation(template: string, translation: TranslationSource | null): Promise<Cue[] | null> {
+    if (!translation) return Promise.resolve(null);
+    const request =
+      translation.type === 'track'
+        ? { lang: translation.track.languageCode, kind: translation.track.kind }
+        : { lang: translation.from.languageCode, kind: translation.from.kind, tlang: translation.tlang };
+    return this.fetchCues(buildTrackUrl(template, request));
+  }
+
+  private async fetchCues(url: string): Promise<Cue[] | null> {
+    try {
+      return parseJson3(await this.deps.fetchText(url));
+    } catch (error) {
+      warn(`subtitle fetch failed: ${new URL(url).searchParams.get('lang')}`, error);
+      return null;
+    }
+  }
+
+  private abandonVideo(): void {
+    this.resetVideoView();
+    this.restoreCaptions();
+  }
+
+  private resetVideo(): void {
+    this.generation++;
+    this.abandonVideo();
+    this.tracksSeen = false;
+    this.tracks = [];
+    this.template = null;
+    this.selection = null;
+    this.started = false;
+  }
+
+  private resetVideoView(): void {
+    this.runDetach();
+    const overlay = this.overlay;
+    this.overlay = null;
+    this.jaCues = null;
+    if (overlay) guard('could not destroy the subtitle overlay', () => overlay.destroy());
+    this.setNativeHidden(false);
+  }
+
+  private runDetach(): void {
+    const detach = this.detach;
+    this.detach = null;
+    if (detach) guard('could not detach the subtitle overlay', detach);
+  }
+
+  private restoreCaptions(): void {
+    if (!this.ensured) return;
+    this.ensured = false;
+    this.send({ source: BRIDGE_SOURCE, type: 'restore-captions' });
+  }
+
+  private send(msg: ToMain): void {
+    guard(`could not send ${msg.type}`, () => this.deps.send(msg));
+  }
+
+  private setNativeHidden(hidden: boolean): void {
+    guard('could not toggle native captions', () => this.deps.setNativeHidden(hidden));
+  }
+}
