@@ -220,6 +220,28 @@ describe('YoutubeSession', () => {
       expect(empty.sent().at(-1)).toBe('restore-captions');
     });
 
+    it('nativeLang change after give-up sends no ensure-captions and leaves native captions shown', async () => {
+      const { session, deps, sent } = setup({ ja: '', en: json3('Hello'), 'ja>es': json3('Hola') });
+      session.onNavigate('v1');
+      await session.onMessage(urlMsg('v1'));
+      await session.onMessage(tracksMsg('v1', [ja, en]));
+      await vi.runAllTimersAsync();
+      expect(sent().at(-1)).toBe('restore-captions');
+      deps.send.mockClear();
+
+      await session.onSettings({ ...ON, nativeLang: 'es' });
+      await session.onMessage(freshUrlMsg('v1'));
+      await vi.runAllTimersAsync();
+
+      expect(sent()).not.toContain('ensure-captions');
+      expect(deps.attach).not.toHaveBeenCalled();
+      expect(deps.setNativeHidden).not.toHaveBeenCalledWith(true);
+
+      session.onNavigate('v2');
+      await session.onMessage(tracksMsg('v2', [ja, en]));
+      expect(sent()).toContain('ensure-captions');
+    });
+
     it('cancels a pending retry on navigation', async () => {
       const { session, deps, sent } = setup({ ja: '', en: json3('Hello') });
       session.onNavigate('v1');

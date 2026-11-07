@@ -84,6 +84,7 @@ export class YoutubeSession {
   private detach: (() => void) | null = null;
   private jaCues: Cue[] | null = null;
   private retries = 0;
+  private gaveUp = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -151,13 +152,13 @@ export class YoutubeSession {
   }
 
   private ensureCaptions(): void {
-    if (this.ensured || !this.selection) return;
+    if (this.gaveUp || this.ensured || !this.selection) return;
     this.ensured = true;
     this.send({ source: BRIDGE_SOURCE, type: 'ensure-captions', track: this.selection.ja });
   }
 
   private async maybeStart(): Promise<void> {
-    if (this.started || !this.selection || !this.template) return;
+    if (this.gaveUp || this.started || !this.selection || !this.template) return;
     this.started = true;
     const generation = this.generation;
     const urls = trackUrls(this.template, this.selection);
@@ -173,6 +174,7 @@ export class YoutubeSession {
 
   private retryOrAbandon(): void {
     if (this.retries >= MAX_RETRIES) {
+      this.gaveUp = true;
       warn('no Japanese cues for this video');
       return this.abandonVideo();
     }
@@ -264,6 +266,7 @@ export class YoutubeSession {
     this.selection = null;
     this.started = false;
     this.retries = 0;
+    this.gaveUp = false;
   }
 
   private resetVideoView(): void {
