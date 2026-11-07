@@ -26,7 +26,7 @@ async function initialSettings(): Promise<Settings> {
 
 export default defineContentScript({
   matches: ['*://www.youtube.com/*'],
-  async main() {
+  async main(ctx) {
     const session = new YoutubeSession(
       {
         fetchText,
@@ -46,16 +46,20 @@ export default defineContentScript({
       await initialSettings(),
     );
 
-    window.addEventListener('message', (event) => {
+    ctx.addEventListener(window, 'message', (event) => {
       if (event.source !== window || !isToIsolated(event.data)) return;
       session.onMessage(event.data).catch((error) => console.warn('[yabai-jp] bridge message failed', error));
     });
-    watchSettings((settings) => {
+    const unwatchSettings = watchSettings((settings) => {
       session.onSettings(settings).catch((error) => console.warn('[yabai-jp] settings update failed', error));
     });
     const navigate = () => session.onNavigate(watchVideoId(location.href));
-    document.addEventListener('yt-navigate-start', () => session.onNavigate(null));
-    document.addEventListener('yt-navigate-finish', navigate);
+    ctx.addEventListener(document, 'yt-navigate-start', () => session.onNavigate(null));
+    ctx.addEventListener(document, 'yt-navigate-finish', navigate);
+    ctx.onInvalidated(() => {
+      unwatchSettings();
+      session.teardown();
+    });
     navigate();
   },
 });
