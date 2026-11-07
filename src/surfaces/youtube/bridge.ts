@@ -54,3 +54,23 @@ export function extractTracks(playerResponse: unknown): { tracks: CaptionTrack[]
   const tracks = rawTracks.map(toTrack).filter((t): t is CaptionTrack => t !== null);
   return { tracks, isLive };
 }
+
+const TO_MAIN_TYPES: ReadonlySet<unknown> = new Set<ToMain['type']>(['ensure-captions', 'restore-captions', 'request-state']);
+const TO_ISOLATED_TYPES: ReadonlySet<unknown> = new Set<ToIsolated['type']>(['timedtext-url', 'tracks']);
+
+export function isToMain(data: unknown): data is ToMain {
+  return isBridgeMessage<ToMain>(data) && TO_MAIN_TYPES.has(data.type);
+}
+
+export function isToIsolated(data: unknown): data is ToIsolated {
+  return isBridgeMessage<ToIsolated>(data) && TO_ISOLATED_TYPES.has(data.type);
+}
+
+export function watchVideoId(href: string): string | null {
+  try {
+    const url = new URL(href);
+    return url.pathname === '/watch' ? url.searchParams.get('v') || null : null;
+  } catch {
+    return null;
+  }
+}
