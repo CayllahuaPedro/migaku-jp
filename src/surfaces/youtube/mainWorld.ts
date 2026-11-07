@@ -14,19 +14,29 @@ export interface HookTarget {
   XMLHttpRequest: { prototype: Pick<XMLHttpRequest, 'open'> };
 }
 
+export type CaptionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
 export interface MainWorldDeps {
   getPlayer(): YoutubePlayer | null;
   post(msg: ToIsolated): void;
   currentVideoId(): string | null;
+  getStorage(): CaptionStorage;
 }
 
 type TimedtextMessage = Extract<ToIsolated, { type: 'timedtext-url' }>;
 type TracksMessage = Extract<ToIsolated, { type: 'tracks' }>;
 type CaptionsOption = Record<string, unknown> & { languageCode: string };
+type StorageSnapshot = Map<string, string | null>;
 
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
 const POLL_INTERVAL_MS = 250;
 const POLL_TIMEOUT_MS = 5000;
+const STORAGE_SETTLE_MS = 1500;
+const CAPTION_STORAGE_KEYS = [
+  'yt-player-caption-sticky-language',
+  'yt-player-caption-persistence',
+  'yt-player-caption-language-preferences',
+];
 
 const warn = (message: string, ...details: unknown[]) => console.warn(`[yabai-jp] ${message}`, ...details);
 
@@ -84,7 +94,8 @@ export class MainWorldAgent {
   private lastTimedtext: TimedtextMessage | null = null;
   private lastTracks: TracksMessage | null = null;
   private poll: { videoId: string; timer: ReturnType<typeof setTimeout> } | null = null;
-  private remembered: { prior: CaptionsOption | null } | null = null;
+  private remembered: { prior: CaptionsOption | null; storage: StorageSnapshot | null } | null = null;
+  private settling: { storage: StorageSnapshot | null; timer: ReturnType<typeof setTimeout> } | null = null;
 
   constructor(private deps: MainWorldDeps) {}
 
@@ -98,6 +109,11 @@ export class MainWorldAgent {
   onNavigate(): void {
     this.stopPolling();
     this.publishTracks();
+  }
+
+  onPageHide(): void {
+    const storage = this.remembered?.storage ?? this.settling?.storage;
+    if (storage) this.writeStorage(storage);
   }
 
   onMessage(msg: ToMain): void {
@@ -158,8 +174,9 @@ export class MainWorldAgent {
       return;
     }
     if (!this.remembered) {
+      this.stopSettling();
       const prior = guard('could not read the caption track', () => player.getOption!('captions', 'track'));
-      this.remembered = { prior: asCaptionsOption(prior) };
+      this.remembered = { prior: asCaptionsOption(prior), storage: this.readStorage() };
     }
     guard('could not load the captions module', () => player.loadModule!('captions'));
     const option = { languageCode: track.languageCode, ...(track.kind ? { kind: track.kind } : {}) };
@@ -170,14 +187,49 @@ export class MainWorldAgent {
     const remembered = this.remembered;
     if (!remembered) return;
     this.remembered = null;
+    this.restorePlayer(remembered.prior);
+    this.writeStorage(remembered.storage);
+    this.stopSettling();
+    const timer = setTimeout(() => {
+      this.settling = null;
+      this.writeStorage(remembered.storage);
+    }, STORAGE_SETTLE_MS);
+    this.settling = { storage: remembered.storage, timer };
+  }
+
+  private stopSettling(): void {
+    if (this.settling) clearTimeout(this.settling.timer);
+    this.settling = null;
+  }
+
+  private restorePlayer(prior: CaptionsOption | null): void {
     const player = this.deps.getPlayer();
     if (!player) {
       warn('no player to restore captions on');
       return;
     }
-    const { prior } = remembered;
     if (prior) guard('could not restore the caption track', () => player.setOption!('captions', 'track', prior));
     else guard('could not unload the captions module', () => player.unloadModule!('captions'));
+  }
+
+  private readStorage(): StorageSnapshot | null {
+    return (
+      guard('could not read caption preferences', () => {
+        const storage = this.deps.getStorage();
+        return new Map(CAPTION_STORAGE_KEYS.map((key) => [key, storage.getItem(key)]));
+      }) ?? null
+    );
+  }
+
+  private writeStorage(snapshot: StorageSnapshot | null): void {
+    if (!snapshot) return;
+    guard('could not restore caption preferences', () => {
+      const storage = this.deps.getStorage();
+      for (const [key, value] of snapshot) {
+        if (value === null) storage.removeItem(key);
+        else storage.setItem(key, value);
+      }
+    });
   }
 
   private post(msg: ToIsolated): void {

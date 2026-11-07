@@ -76,7 +76,21 @@ function playerResponse(videoId: string) {
   };
 }
 
-function setup(initialVideo: string | null = 'v1') {
+const STICKY = 'yt-player-caption-sticky-language';
+const PERSISTENCE = 'yt-player-caption-persistence';
+const LANGUAGES = 'yt-player-caption-language-preferences';
+
+function fakeStorage(initial: Record<string, string> = {}) {
+  const items = new Map(Object.entries(initial));
+  return {
+    getItem: vi.fn((key: string) => items.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => void items.set(key, value)),
+    removeItem: vi.fn((key: string) => void items.delete(key)),
+    snapshot: () => Object.fromEntries(items),
+  };
+}
+
+function setup(initialVideo: string | null = 'v1', storage = fakeStorage()) {
   let videoId = initialVideo;
   let responseVideo = initialVideo ?? 'none';
   let captionsOption: unknown = {};
@@ -93,11 +107,13 @@ function setup(initialVideo: string | null = 'v1') {
     getPlayer: () => currentPlayer,
     post: (m) => posted.push(m),
     currentVideoId: () => videoId,
+    getStorage: () => storage,
   });
   return {
     agent,
     player,
     posted,
+    storage,
     navigate(id: string | null) {
       videoId = id;
     },
@@ -299,5 +315,106 @@ describe('MainWorldAgent', () => {
     t.setPlayer(null);
     expect(() => t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }))).not.toThrow();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[yabai-jp]'), expect.anything());
+  });
+
+  describe('caption preferences in storage', () => {
+    const userSticky = '{"data":"en","expiration":1,"creation":0}';
+    const playerWritesJapanese = (storage: ReturnType<typeof fakeStorage>) => {
+      storage.setItem(STICKY, '{"data":"ja"}');
+      storage.setItem(PERSISTENCE, '{"data":"true"}');
+      storage.setItem(LANGUAGES, '{"data":"[\\"ja\\"]"}');
+    };
+
+    it('writes the pre-ensure values back after the player restore, removing keys that were absent', () => {
+      const t = setup('v1', fakeStorage({ [STICKY]: userSticky }));
+      t.setCaptionsOption({});
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      playerWritesJapanese(t.storage);
+      t.player.unloadModule.mockImplementation(() => t.storage.setItem(STICKY, '{"data":"ja"}'));
+
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+
+      expect(t.player.unloadModule).toHaveBeenCalledWith('captions');
+      expect(t.storage.snapshot()).toEqual({ [STICKY]: userSticky });
+    });
+
+    it('snapshots only on the first ensure', () => {
+      const t = setup('v1', fakeStorage());
+      const prior = { languageCode: 'en', kind: '' };
+      t.setCaptionsOption(prior);
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      playerWritesJapanese(t.storage);
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      t.player.setOption.mockImplementation(() => t.storage.setItem(STICKY, '{"data":"en"}'));
+
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+
+      expect(t.player.setOption).toHaveBeenLastCalledWith('captions', 'track', prior);
+      expect(t.storage.snapshot()).toEqual({});
+    });
+
+    it('restores storage on page hide without touching the player', () => {
+      const t = setup('v1', fakeStorage({ [PERSISTENCE]: '{"data":"false"}' }));
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      playerWritesJapanese(t.storage);
+      t.player.setOption.mockClear();
+
+      t.agent.onPageHide();
+
+      expect(t.storage.snapshot()).toEqual({ [PERSISTENCE]: '{"data":"false"}' });
+      expect(t.player.setOption).not.toHaveBeenCalled();
+      expect(t.player.unloadModule).not.toHaveBeenCalled();
+    });
+
+    it('writes the snapshot again after the restored track had time to load', () => {
+      const t = setup('v1', fakeStorage({ [LANGUAGES]: '{"data":"[\\"en\\"]"}' }));
+      t.setCaptionsOption({ languageCode: 'en', kind: '' });
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      playerWritesJapanese(t.storage);
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+      t.storage.setItem(PERSISTENCE, '{"data":"true"}');
+
+      vi.advanceTimersByTime(1500);
+
+      expect(t.storage.snapshot()).toEqual({ [LANGUAGES]: '{"data":"[\\"en\\"]"}' });
+    });
+
+    it('a new ensure cancels the delayed write and page hide covers the pending one', () => {
+      const t = setup('v1', fakeStorage());
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      playerWritesJapanese(t.storage);
+      vi.advanceTimersByTime(1500);
+      expect(t.storage.getItem(STICKY)).toBe('{"data":"ja"}');
+
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+      t.storage.setItem(PERSISTENCE, '{"data":"true"}');
+      t.agent.onPageHide();
+      expect(t.storage.snapshot()).toEqual({});
+    });
+
+    it('leaves storage alone on page hide when nothing was ensured', () => {
+      const t = setup('v1', fakeStorage({ [STICKY]: '{"data":"ja"}' }));
+      t.agent.onPageHide();
+      expect(t.storage.setItem).not.toHaveBeenCalled();
+      expect(t.storage.removeItem).not.toHaveBeenCalled();
+    });
+
+    it('logs and survives a storage that throws', () => {
+      const t = setup('v1');
+      for (const method of [t.storage.getItem, t.storage.setItem, t.storage.removeItem]) {
+        method.mockImplementation(() => {
+          throw new DOMException('denied', 'SecurityError');
+        });
+      }
+      t.setCaptionsOption({});
+      expect(() => t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }))).not.toThrow();
+      expect(t.player.setOption).toHaveBeenCalledWith('captions', 'track', { languageCode: 'ja' });
+      expect(() => t.agent.onPageHide()).not.toThrow();
+      expect(() => t.agent.onMessage(msg({ type: 'restore-captions' }))).not.toThrow();
+      expect(t.player.unloadModule).toHaveBeenCalledWith('captions');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[yabai-jp]'), expect.anything());
+    });
   });
 });
