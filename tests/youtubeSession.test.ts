@@ -296,6 +296,32 @@ describe('YoutubeSession', () => {
     expect(() => session.teardown()).not.toThrow();
   });
 
+  it('resolves a relative timedtext template against youtube.com', async () => {
+    const { session, deps, overlays } = setup(BOTH);
+    session.onNavigate('v1');
+    await session.onMessage({ ...urlMsg('v1'), url: '/api/timedtext?v=v1&lang=ja&c=WEB' } as ToIsolated);
+    await session.onMessage(tracksMsg('v1', [ja, en]));
+    const urls = deps.fetchText.mock.calls.map(([u]) => u);
+    expect(urls).toHaveLength(2);
+    for (const url of urls) {
+      expect(url.startsWith('https://www.youtube.com/api/timedtext?')).toBe(true);
+      expect(new URL(url).searchParams.get('c')).toBe('WEB');
+    }
+    expect(deps.attach).toHaveBeenCalledWith(overlays[0], cues('こんにちは'), cues('Hello'));
+  });
+
+  it('logs and ignores a malformed timedtext template', async () => {
+    const { session, deps } = setup(BOTH);
+    session.onNavigate('v1');
+    await session.onMessage(tracksMsg('v1', [ja, en]));
+    await expect(
+      session.onMessage({ ...urlMsg('v1'), url: 'http://[' } as ToIsolated),
+    ).resolves.toBeUndefined();
+    expect(warned()).toBe(true);
+    expect(deps.fetchText).not.toHaveBeenCalled();
+    expect(deps.attach).not.toHaveBeenCalled();
+  });
+
   it('teardown removes the overlay and ignores later messages', async () => {
     const { session, deps, overlayMounted, sent } = setup(BOTH);
     session.onNavigate('v1');

@@ -19,6 +19,8 @@ export interface SessionDeps {
   setNativeHidden(hidden: boolean): void;
 }
 
+const YOUTUBE_ORIGIN = 'https://www.youtube.com';
+
 const warn = (message: string, ...details: unknown[]) => console.warn(`[yabai-jp] ${message}`, ...details);
 
 function guard(label: string, action: () => void): boolean {
@@ -28,6 +30,42 @@ function guard(label: string, action: () => void): boolean {
   } catch (error) {
     warn(label, error);
     return false;
+  }
+}
+
+function normalizeTemplate(url: string): string | null {
+  try {
+    return new URL(url, YOUTUBE_ORIGIN).toString();
+  } catch (error) {
+    warn('ignoring malformed timedtext URL', error);
+    return null;
+  }
+}
+
+function translationUrl(template: string, translation: TranslationSource | null): string | null {
+  if (!translation) return null;
+  const request =
+    translation.type === 'track'
+      ? { lang: translation.track.languageCode, kind: translation.track.kind }
+      : { lang: translation.from.languageCode, kind: translation.from.kind, tlang: translation.tlang };
+  return buildTrackUrl(template, request);
+}
+
+interface TrackUrls {
+  ja: string;
+  translation: string | null;
+}
+
+function trackUrls(template: string, selection: TrackSelection): TrackUrls | null {
+  try {
+    const { ja, translation } = selection;
+    return {
+      ja: buildTrackUrl(template, { lang: ja.languageCode, kind: ja.kind }),
+      translation: translationUrl(template, translation),
+    };
+  } catch (error) {
+    warn('could not build subtitle URLs', error);
+    return null;
   }
 }
 
@@ -52,7 +90,9 @@ export class YoutubeSession {
   async onMessage(msg: ToIsolated): Promise<void> {
     if (!this.settings.youtubeDualSubs || msg.videoId !== this.videoId) return;
     if (msg.type === 'timedtext-url') {
-      this.template = msg.url;
+      const template = normalizeTemplate(msg.url);
+      if (!template) return;
+      this.template = template;
       return this.maybeStart();
     }
     if (this.tracksSeen) return;
@@ -113,11 +153,11 @@ export class YoutubeSession {
     if (this.started || !this.selection || !this.template) return;
     this.started = true;
     const generation = this.generation;
-    const { ja, translation } = this.selection;
-    const template = this.template;
+    const urls = trackUrls(this.template, this.selection);
+    if (!urls) return this.abandonVideo();
     const [jaCues, translationCues] = await Promise.all([
-      this.fetchCues(buildTrackUrl(template, { lang: ja.languageCode, kind: ja.kind })),
-      this.fetchTranslation(template, translation),
+      this.fetchCues(urls.ja, 'Japanese'),
+      urls.translation ? this.fetchCues(urls.translation, 'translation') : null,
     ]);
     if (generation !== this.generation) return;
     if (!jaCues?.length) {
@@ -131,7 +171,9 @@ export class YoutubeSession {
     const generation = ++this.generation;
     this.selection = selectTracks(this.tracks, this.settings.nativeLang);
     if (!this.selection || !this.template) return this.abandonVideo();
-    const translationCues = await this.fetchTranslation(this.template, this.selection.translation);
+    const urls = trackUrls(this.template, this.selection);
+    if (!urls) return this.abandonVideo();
+    const translationCues = urls.translation ? await this.fetchCues(urls.translation, 'translation') : null;
     if (generation !== this.generation || !this.overlay || !this.jaCues) return;
     this.runDetach();
     this.attachCues(this.overlay, this.jaCues, translationCues ?? []);
@@ -164,20 +206,11 @@ export class YoutubeSession {
     if (!attached) this.abandonVideo();
   }
 
-  private fetchTranslation(template: string, translation: TranslationSource | null): Promise<Cue[] | null> {
-    if (!translation) return Promise.resolve(null);
-    const request =
-      translation.type === 'track'
-        ? { lang: translation.track.languageCode, kind: translation.track.kind }
-        : { lang: translation.from.languageCode, kind: translation.from.kind, tlang: translation.tlang };
-    return this.fetchCues(buildTrackUrl(template, request));
-  }
-
-  private async fetchCues(url: string): Promise<Cue[] | null> {
+  private async fetchCues(url: string, label: string): Promise<Cue[] | null> {
     try {
       return parseJson3(await this.deps.fetchText(url));
     } catch (error) {
-      warn(`subtitle fetch failed: ${new URL(url).searchParams.get('lang')}`, error);
+      warn(`${label} subtitle fetch failed`, error);
       return null;
     }
   }
