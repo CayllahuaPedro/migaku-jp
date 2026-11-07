@@ -53,6 +53,7 @@ export default defineContentScript({
       session.onSettings(settings).catch((error) => console.warn('[yabai-jp] settings update failed', error));
     });
     const navigate = () => session.onNavigate(watchVideoId(location.href));
+    document.addEventListener('yt-navigate-start', () => session.onNavigate(null));
     document.addEventListener('yt-navigate-finish', navigate);
     navigate();
   },
