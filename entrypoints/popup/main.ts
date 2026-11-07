@@ -1,4 +1,5 @@
 import { isErrorResult } from '../../src/core/messages';
+import { NATIVE_LANGS, getSettings, saveSettings } from '../../src/core/settings';
 import { FONTS_CSS_PATH } from '../../src/ui/theme';
 import { linkFontStylesheet } from '../../src/ui/fonts';
 import { POPUP_PAGE_CSS } from './styles';
@@ -66,3 +67,22 @@ document.getElementById('revert')!.addEventListener('click', async () => {
     fail(TAB_UNREACHABLE, err);
   }
 });
+
+const dualSubsInput = document.getElementById('yt-dual') as HTMLInputElement;
+const nativeLangSelect = document.getElementById('native-lang') as HTMLSelectElement;
+
+nativeLangSelect.replaceChildren(
+  ...NATIVE_LANGS.map(({ code, label }) => new Option(label, code)),
+);
+
+getSettings().then((settings) => {
+  dualSubsInput.checked = settings.youtubeDualSubs;
+  nativeLangSelect.value = settings.nativeLang;
+});
+
+dualSubsInput.addEventListener('change', () =>
+  saveSettings({ youtubeDualSubs: dualSubsInput.checked }),
+);
+nativeLangSelect.addEventListener('change', () =>
+  saveSettings({ nativeLang: nativeLangSelect.value }),
+);

@@ -12,7 +12,7 @@ export default defineConfig({
   manifest: {
     name: 'Yabai-JP',
     description: 'Japanese furigana, pitch accent colouring and dictionary — fully offline',
-    permissions: ['activeTab'],
+    permissions: ['activeTab', 'storage'],
     web_accessible_resources: [
       { resources: ['kuromoji/*', 'dict/*', 'fonts/*'], matches: ['<all_urls>'] },
     ],

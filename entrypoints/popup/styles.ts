@@ -68,4 +68,49 @@ button:focus-visible { outline: 2px solid var(--mjp-yellow); outline-offset: 2px
   .status[data-state='busy'] .status-dot { animation: pulse 1s ease-in-out infinite; }
 }
 @keyframes pulse { 50% { opacity: 0.3; } }
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mjp-line);
+  font-size: 13px;
+}
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.setting-field { display: flex; flex-direction: column; gap: 6px; color: var(--mjp-muted); }
+.setting-field select {
+  padding: 7px 8px;
+  border: 1px solid var(--mjp-line);
+  border-radius: var(--mjp-radius-sm);
+  background: var(--mjp-surface);
+  color: var(--mjp-text);
+  font: inherit;
+}
+.switch {
+  appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border-radius: var(--mjp-radius-full);
+  background: var(--mjp-line);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--mjp-radius-full);
+  background: var(--mjp-bg);
+  transition: transform 0.12s;
+}
+.switch:checked { background: var(--mjp-accent); }
+.switch:checked::after { transform: translateX(16px); }
+.switch:focus-visible, .setting-field select:focus-visible { outline: 2px solid var(--mjp-yellow); outline-offset: 2px; }
 `;
