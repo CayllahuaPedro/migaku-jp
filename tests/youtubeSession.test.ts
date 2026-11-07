@@ -441,6 +441,20 @@ describe('YoutubeSession', () => {
     expect(deps.attach).toHaveBeenCalledWith(overlays[0], cues('こんにちは'), cues('Hello'));
   });
 
+  it.each([
+    'https://evil.example/api/timedtext?v=v1&lang=ja',
+    'http://www.youtube.com/api/timedtext?v=v1&lang=ja',
+    'https://www.youtube.com/redirect?v=v1&lang=ja',
+  ])('logs and ignores a timedtext template outside youtube.com/api/timedtext: %s', async (url) => {
+    const { session, deps } = setup(BOTH);
+    session.onNavigate('v1');
+    await session.onMessage(tracksMsg('v1', [ja, en]));
+    await session.onMessage({ ...urlMsg('v1'), url } as ToIsolated);
+    expect(warned()).toBe(true);
+    expect(deps.fetchText).not.toHaveBeenCalled();
+    expect(deps.attach).not.toHaveBeenCalled();
+  });
+
   it('logs and ignores a malformed timedtext template', async () => {
     const { session, deps } = setup(BOTH);
     session.onNavigate('v1');

@@ -20,6 +20,7 @@ export interface SessionDeps {
 }
 
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
+const TIMEDTEXT_PATH = '/api/timedtext';
 const RETRY_DELAY_MS = 2000;
 const TEMPLATE_TIMEOUT_MS = 5000;
 const MAX_RETRIES = 3;
@@ -37,12 +38,18 @@ function guard(label: string, action: () => void): boolean {
 }
 
 function normalizeTemplate(url: string): string | null {
+  let parsed: URL;
   try {
-    return new URL(url, YOUTUBE_ORIGIN).toString();
+    parsed = new URL(url, YOUTUBE_ORIGIN);
   } catch (error) {
     warn('ignoring malformed timedtext URL', error);
     return null;
   }
+  if (parsed.origin !== YOUTUBE_ORIGIN || parsed.pathname !== TIMEDTEXT_PATH) {
+    warn('ignoring timedtext URL outside youtube.com', parsed.origin + parsed.pathname);
+    return null;
+  }
+  return parsed.toString();
 }
 
 function translationUrl(template: string, translation: TranslationSource | null): string | null {
