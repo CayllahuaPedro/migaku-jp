@@ -252,6 +252,57 @@ describe('YoutubeSession', () => {
       await vi.runAllTimersAsync();
       expect(sent()).toEqual([]);
     });
+
+    it('keeps captions untouched when a template arrives during the retry delay', async () => {
+      const responses: Record<string, string> = { ja: '', en: json3('Hello') };
+      const { session, deps, overlays, sent, overlayMounted } = setup(responses);
+      session.onNavigate('v1');
+      await session.onMessage(urlMsg('v1'));
+      await session.onMessage(tracksMsg('v1', [ja, en]));
+
+      responses.ja = json3('こんにちは');
+      await vi.advanceTimersByTimeAsync(1000);
+      await session.onMessage(freshUrlMsg('v1'));
+      expect(deps.attach).toHaveBeenCalledWith(overlays[0], cues('こんにちは'), cues('Hello'));
+
+      await vi.runAllTimersAsync();
+      expect(sent()).toEqual(['request-state', 'ensure-captions']);
+      expect(overlayMounted()).toBe(true);
+    });
+  });
+
+  describe('when the player never requests subtitles after ensure-captions', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('gives up, restores captions and logs without attaching', async () => {
+      const { session, deps, sent } = setup(BOTH);
+      session.onNavigate('v1');
+      await session.onMessage(tracksMsg('v1', [ja, en]));
+      expect(sent()).toEqual(['request-state', 'ensure-captions']);
+
+      await vi.runAllTimersAsync();
+
+      expect(sent().at(-1)).toBe('restore-captions');
+      expect(warned()).toBe(true);
+      expect(deps.fetchText).not.toHaveBeenCalled();
+      expect(deps.attach).not.toHaveBeenCalled();
+      expect(deps.setNativeHidden).not.toHaveBeenCalledWith(true);
+    });
+
+    it('does not give up once the template arrives within the window', async () => {
+      const { session, deps, sent } = setup(BOTH);
+      session.onNavigate('v1');
+      await session.onMessage(tracksMsg('v1', [ja, en]));
+      await vi.advanceTimersByTimeAsync(1000);
+      await session.onMessage(urlMsg('v1'));
+
+      await vi.runAllTimersAsync();
+
+      expect(deps.attach).toHaveBeenCalledOnce();
+      expect(sent()).toEqual(['request-state', 'ensure-captions']);
+      expect(warned()).toBe(false);
+    });
   });
 
   it('discards results from a previous video after navigation', async () => {

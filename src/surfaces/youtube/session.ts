@@ -21,6 +21,7 @@ export interface SessionDeps {
 
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
 const RETRY_DELAY_MS = 2000;
+const TEMPLATE_TIMEOUT_MS = 5000;
 const MAX_RETRIES = 3;
 
 const warn = (message: string, ...details: unknown[]) => console.warn(`[yabai-jp] ${message}`, ...details);
@@ -155,6 +156,9 @@ export class YoutubeSession {
     if (this.gaveUp || this.ensured || !this.selection) return;
     this.ensured = true;
     this.send({ source: BRIDGE_SOURCE, type: 'ensure-captions', track: this.selection.ja });
+    this.later(TEMPLATE_TIMEOUT_MS, () => {
+      if (!this.started) this.retryOrAbandon();
+    });
   }
 
   private async maybeStart(): Promise<void> {
@@ -181,21 +185,19 @@ export class YoutubeSession {
     this.retries++;
     this.started = false;
     this.template = null;
-    this.later(() => {
+    this.later(RETRY_DELAY_MS, () => {
+      if (this.started) return;
       this.restoreCaptions();
       this.ensureCaptions();
-      this.later(() => {
-        if (!this.started) this.retryOrAbandon();
-      });
     });
   }
 
-  private later(action: () => void): void {
+  private later(delay: number, action: () => void): void {
     this.cancelRetry();
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       action();
-    }, RETRY_DELAY_MS);
+    }, delay);
   }
 
   private cancelRetry(): void {
