@@ -379,19 +379,56 @@ describe('MainWorldAgent', () => {
       expect(t.storage.snapshot()).toEqual({ [LANGUAGES]: '{"data":"[\\"en\\"]"}' });
     });
 
-    it('a new ensure cancels the delayed write and page hide covers the pending one', () => {
+    it('page hide covers the pending delayed write after a restore', () => {
       const t = setup('v1', fakeStorage());
       t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
-      t.agent.onMessage(msg({ type: 'restore-captions' }));
-      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
-      playerWritesJapanese(t.storage);
-      vi.advanceTimersByTime(1500);
-      expect(t.storage.getItem(STICKY)).toBe('{"data":"ja"}');
-
       t.agent.onMessage(msg({ type: 'restore-captions' }));
       t.storage.setItem(PERSISTENCE, '{"data":"true"}');
       t.agent.onPageHide();
       expect(t.storage.snapshot()).toEqual({});
+    });
+
+    it('never leaves the forced Japanese preferences in storage while captions are ensured', () => {
+      const t = setup('v1', fakeStorage({ [STICKY]: userSticky }));
+      t.player.setOption.mockImplementation(() => playerWritesJapanese(t.storage));
+
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      expect(t.storage.snapshot()).toEqual({ [STICKY]: userSticky });
+
+      playerWritesJapanese(t.storage);
+      vi.advanceTimersByTime(1500);
+      expect(t.storage.snapshot()).toEqual({ [STICKY]: userSticky });
+      expect(t.player.setOption).toHaveBeenLastCalledWith('captions', 'track', { languageCode: 'ja' });
+    });
+
+    it('lets another tab opened after the ensure snapshot the user preferences', () => {
+      const shared = fakeStorage({ [STICKY]: userSticky });
+      const tabA = setup('v1', shared);
+      tabA.player.setOption.mockImplementation(() => playerWritesJapanese(shared));
+      tabA.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      vi.advanceTimersByTime(1500);
+
+      const tabB = setup('v2', shared);
+      tabB.setCaptionsOption({});
+      tabB.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      playerWritesJapanese(shared);
+      tabB.agent.onMessage(msg({ type: 'restore-captions' }));
+
+      expect(shared.snapshot()).toEqual({ [STICKY]: userSticky });
+    });
+
+    it('reuses the pending snapshot when captions are ensured again while restore is settling', () => {
+      const t = setup('v1', fakeStorage({ [STICKY]: userSticky }));
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+      playerWritesJapanese(t.storage);
+
+      t.agent.onMessage(msg({ type: 'ensure-captions', track: JA }));
+      expect(t.storage.snapshot()).toEqual({ [STICKY]: userSticky });
+
+      t.agent.onMessage(msg({ type: 'restore-captions' }));
+      vi.advanceTimersByTime(1500);
+      expect(t.storage.snapshot()).toEqual({ [STICKY]: userSticky });
     });
 
     it('leaves storage alone on page hide when nothing was ensured', () => {

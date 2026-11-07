@@ -174,13 +174,13 @@ export class MainWorldAgent {
       return;
     }
     if (!this.remembered) {
-      this.stopSettling();
       const prior = guard('could not read the caption track', () => player.getOption!('captions', 'track'));
-      this.remembered = { prior: asCaptionsOption(prior), storage: this.readStorage() };
+      this.remembered = { prior: asCaptionsOption(prior), storage: this.settling?.storage ?? this.readStorage() };
     }
     guard('could not load the captions module', () => player.loadModule!('captions'));
     const option = { languageCode: track.languageCode, ...(track.kind ? { kind: track.kind } : {}) };
     guard('could not select the Japanese caption track', () => player.setOption!('captions', 'track', option));
+    this.pinStorage(this.remembered.storage);
   }
 
   private restoreCaptions(): void {
@@ -188,13 +188,17 @@ export class MainWorldAgent {
     if (!remembered) return;
     this.remembered = null;
     this.restorePlayer(remembered.prior);
-    this.writeStorage(remembered.storage);
+    this.pinStorage(remembered.storage);
+  }
+
+  private pinStorage(snapshot: StorageSnapshot | null): void {
+    this.writeStorage(snapshot);
     this.stopSettling();
     const timer = setTimeout(() => {
       this.settling = null;
-      this.writeStorage(remembered.storage);
+      this.writeStorage(snapshot);
     }, STORAGE_SETTLE_MS);
-    this.settling = { storage: remembered.storage, timer };
+    this.settling = { storage: snapshot, timer };
   }
 
   private stopSettling(): void {
