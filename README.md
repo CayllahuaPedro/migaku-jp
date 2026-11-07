@@ -1,13 +1,18 @@
 # Yabai-JP
 
-A Chrome extension that annotates Japanese text on any web page with **furigana** and
-**pitch-accent colouring**, and shows dictionary definitions on click.
+A Chrome extension for learning Japanese from real content:
 
-Everything runs locally. No backend, no account, no network requests — the dictionary
-(~44 MB of JMdict + Kanjium pitch data) is imported into IndexedDB on first run and never
-leaves the browser.
+- **Web pages** — annotates Japanese text with **furigana** and **pitch-accent colouring**,
+  and shows dictionary definitions on click.
+- **YouTube** — **dual subtitles**: Japanese on top, your language underneath, always on,
+  no switching tracks.
+
+Everything runs locally. No backend, no account — the dictionary (~44 MB of JMdict + Kanjium
+pitch data) is imported into IndexedDB on first run and never leaves the browser. The only
+network traffic is YouTube's own subtitle endpoint.
 
 <!-- TODO: demo.gif — before/after of clicking "Anotar página" on a Japanese article -->
+<!-- TODO: dual-subs.gif — a YouTube video playing with Japanese + English lines -->
 
 ## Why
 
@@ -33,6 +38,23 @@ All four colours meet WCAG AA (4.5:1) against a white page.
 Mora segmentation collapses youon (きゃ, しゅ, …) into a single mora, which is what makes
 `M` — and therefore the pattern — correct.
 
+## Dual subtitles on YouTube
+
+Open any `youtube.com/watch` video that has Japanese captions and two lines appear over the
+player, synced to the video:
+
+| Line | Source, in order of preference |
+|------|--------------------------------|
+| Japanese | Human-made track → YouTube auto-captions (ASR) |
+| Translation | Human-made track in your language → YouTube auto-translate from the Japanese track |
+
+- Translation language is set in the extension popup (default **English**), and the toggle
+  turns the feature off. Changes apply to the open video without reloading.
+- Native captions are hidden while the overlay is up and come back otherwise.
+- Videos without Japanese, live streams, Shorts and embeds are left untouched.
+- The overlay scales with the player (theater, fullscreen), moves up when the controls show,
+  and hides during ads.
+
 ## Architecture
 
 A pure-TypeScript language engine with no DOM dependencies, plus thin surfaces that plug it
@@ -40,7 +62,7 @@ into each context. The engine is where the value is, and it is testable in isola
 
 ```
 SURFACES (content scripts)
-  web text  ·  YouTube subs (planned)  ·  Netflix subs (planned)
+  web text  ·  YouTube dual subs  ·  Netflix subs (planned)
        │
 LANGUAGE ENGINE (pure TS)
   tokenize → lookup → pitch → mora → furigana → render
@@ -53,14 +75,16 @@ DATA (IndexedDB, imported once)
 |------|------|
 | [src/core/](src/core/) | Tokenizer, dictionary lookup, pitch classification, mora segmentation, furigana, rendering |
 | [src/surfaces/](src/surfaces/) | Web-text surface: walks visible text nodes, annotates, reverts |
+| [src/surfaces/youtube/](src/surfaces/youtube/) | Track selection, json3 parsing, the cross-world bridge, and the session state machine (navigation, retries, settings) |
 | [src/ui/DictPopup/](src/ui/DictPopup/) | Definition popup, rendered in Shadow DOM so page CSS cannot reach it |
-| [entrypoints/](entrypoints/) | MV3 background service worker, content script, extension popup |
+| [src/ui/SubtitleOverlay/](src/ui/SubtitleOverlay/) | Dual-line overlay in Shadow DOM, synced to `video.currentTime` (reusable for Netflix) |
+| [entrypoints/](entrypoints/) | MV3 background service worker, content scripts (web text, YouTube MAIN + isolated), extension popup |
 
 **One runtime dependency** (`kuromoji`). Everything else is dev-only.
 
 ## Engineering notes
 
-Three things that were not obvious and cost real time:
+Things that were not obvious and cost real time:
 
 **kuromoji needs a `path` shim in the browser bundle.** kuromoji calls `require('path')` to
 locate its dictionary files. Vite externalises that to an empty stub for browser targets, so
@@ -72,6 +96,23 @@ breaks WxtVitest — Vitest 2 requires Vite 5. Revisit when moving to wxt 1.x.
 
 **Annotation is reverted, not re-rendered.** Each injected token carries its source text in a
 `data-mjp-*` attribute, so restoring the page is an exact inverse rather than a reload.
+
+**YouTube subtitles need the player's own request.** The `timedtext` endpoint can answer
+`200` with an empty body unless the request carries the player's Proof-of-Origin token, and
+the player's first request often goes out before that token exists. So a MAIN-world script
+hooks `fetch`/XHR at `document_start`, captures the player's (relative) request URL as a
+template, and re-asks the player for captions when the first Japanese track comes back empty.
+The isolated content script talks to it over a namespaced `postMessage` bridge.
+
+**Forcing captions on leaks into every tab.** Switching the player to Japanese writes
+`yt-player-caption-*` keys to `localStorage`, which all YouTube tabs share — other videos
+started auto-translating to Japanese. The MAIN-world agent snapshots those keys before
+forcing captions and writes them back right after, on restore and on `pagehide`, so the
+user's caption preference is never left changed.
+
+**Headless Chrome gets empty captions.** YouTube serves empty subtitle bodies to headless
+browsers — even to its own player — so live verification stubbed only `/api/timedtext` and
+kept the real player, navigation and caption state.
 
 ## Setup
 
@@ -92,13 +133,16 @@ npm run build        # → .output/
 ```
 
 Load `.output/chrome-mv3` as an unpacked extension at `chrome://extensions`.
-Open the extension popup on a Japanese page and hit **Anotar página** (annotate page);
-**Quitar anotaciones** (remove annotations) puts it back.
+
+- **Web text:** open the extension popup on a Japanese page and hit **Anotar página**
+  (annotate page); **Quitar anotaciones** (remove annotations) puts it back.
+- **YouTube:** open a video with Japanese captions — the dual subtitles start on their own.
+  Pick the translation language under **Idioma de traducción** in the popup.
 
 ## Tests
 
 ```bash
-npm test    # 45 unit tests across 14 files — vitest, fake-indexeddb, happy-dom
+npm test    # 160 unit tests across 23 files — vitest, fake-indexeddb, happy-dom
 npm run e2e # smoke test in a real Chrome instance with the extension loaded
 ```
 
@@ -108,7 +152,8 @@ resolution, `web_accessible_resources`) only appear in a real MV3 runtime.
 
 ## Status
 
-Phase 1 — web text — is complete and in daily use.
+- Phase 1 — web text — complete and in daily use.
+- Phase 2 — flat dual subtitles on YouTube — complete.
 
 Planned:
 
@@ -117,7 +162,8 @@ Planned:
   the dictionary.
 - Batched annotation — currently one message per text node, which is slow on large pages.
 - Service-worker keepalive and progress reporting during the initial 44 MB import.
-- Dual subtitles on YouTube (phase 2) and Netflix (phase 3).
+- Clickable words, furigana and pitch colouring inside the subtitles.
+- Dual subtitles on Netflix (phase 3), reusing the same overlay.
 - Anki export.
 
 ## Licence
