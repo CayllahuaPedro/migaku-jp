@@ -7,6 +7,7 @@ import { syncOverlay } from '../src/ui/SubtitleOverlay/sync';
 
 const PLAYER_SELECTOR = '#movie_player';
 const VIDEO_SELECTOR = '#movie_player video';
+const OVERLAY_OPTIONS = { controlsHiddenClass: 'ytp-autohide', suppressedClass: 'ad-showing' };
 
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, { credentials: 'include' });
@@ -33,7 +34,7 @@ export default defineContentScript({
         mountOverlay: () => {
           const player = document.querySelector<HTMLElement>(PLAYER_SELECTOR);
           if (!player || !document.querySelector(VIDEO_SELECTOR)) return null;
-          return new SubtitleOverlay(player);
+          return new SubtitleOverlay(player, OVERLAY_OPTIONS);
         },
         attach: (overlay, primary, secondary) => {
           const video = document.querySelector<HTMLVideoElement>(VIDEO_SELECTOR);

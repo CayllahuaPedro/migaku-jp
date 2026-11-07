@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SubtitleOverlay } from '../src/ui/SubtitleOverlay';
 import { syncOverlay } from '../src/ui/SubtitleOverlay/sync';
+import { OVERLAY_CSS } from '../src/ui/SubtitleOverlay/styles';
 
 const hostOf = (c: HTMLElement) => c.querySelector('[data-mjp-overlay]') as HTMLElement;
 
@@ -34,15 +35,18 @@ describe('SubtitleOverlay', () => {
     expect(hostOf(c)).toBeNull();
   });
 
-  it('toggles data-mjp-controls-hidden with the ytp-autohide class on the container', async () => {
+  const nextMutation = () => new Promise((r) => setTimeout(r, 0));
+  const YOUTUBE_CLASSES = { controlsHiddenClass: 'ytp-autohide', suppressedClass: 'ad-showing' };
+
+  it('toggles data-mjp-controls-hidden with the configured controls-hidden class', async () => {
     const c = document.createElement('div');
-    const o = new SubtitleOverlay(c);
+    const o = new SubtitleOverlay(c, YOUTUBE_CLASSES);
     expect(hostOf(c).hasAttribute('data-mjp-controls-hidden')).toBe(false);
     c.classList.add('ytp-autohide');
-    await new Promise((r) => setTimeout(r, 0));
+    await nextMutation();
     expect(hostOf(c).hasAttribute('data-mjp-controls-hidden')).toBe(true);
     c.classList.remove('ytp-autohide');
-    await new Promise((r) => setTimeout(r, 0));
+    await nextMutation();
     expect(hostOf(c).hasAttribute('data-mjp-controls-hidden')).toBe(false);
     o.destroy();
   });
@@ -50,8 +54,41 @@ describe('SubtitleOverlay', () => {
   it('starts with the hidden attribute when the container is already autohidden', () => {
     const c = document.createElement('div');
     c.className = 'ytp-autohide';
-    new SubtitleOverlay(c);
+    new SubtitleOverlay(c, YOUTUBE_CLASSES);
     expect(hostOf(c).hasAttribute('data-mjp-controls-hidden')).toBe(true);
+  });
+
+  it('hides the overlay while the container has the configured suppressed class', async () => {
+    const c = document.createElement('div');
+    const o = new SubtitleOverlay(c, YOUTUBE_CLASSES);
+    expect(hostOf(c).hasAttribute('data-mjp-suppressed')).toBe(false);
+    c.classList.add('ad-showing');
+    await nextMutation();
+    expect(hostOf(c).hasAttribute('data-mjp-suppressed')).toBe(true);
+    c.classList.remove('ad-showing');
+    await nextMutation();
+    expect(hostOf(c).hasAttribute('data-mjp-suppressed')).toBe(false);
+    o.destroy();
+  });
+
+  it('starts hidden when the container already has the suppressed class', () => {
+    const c = document.createElement('div');
+    c.className = 'ad-showing';
+    new SubtitleOverlay(c, YOUTUBE_CLASSES);
+    expect(hostOf(c).hasAttribute('data-mjp-suppressed')).toBe(true);
+  });
+
+  it('styles the suppressed host as display none', () => {
+    expect(OVERLAY_CSS.replace(/\s+/g, ' ')).toContain(':host([data-mjp-suppressed]) { display: none; }');
+  });
+
+  it('tracks no container classes unless configured', async () => {
+    const c = document.createElement('div');
+    c.className = 'ytp-autohide ad-showing';
+    new SubtitleOverlay(c);
+    await nextMutation();
+    expect(hostOf(c).hasAttribute('data-mjp-controls-hidden')).toBe(false);
+    expect(hostOf(c).hasAttribute('data-mjp-suppressed')).toBe(false);
   });
 
   it('links the fonts stylesheet on the document', () => {

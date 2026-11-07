@@ -3,15 +3,23 @@ import { linkFontStylesheet } from '../fonts';
 import { FONTS_CSS_PATH } from '../theme';
 import { OVERLAY_CSS } from './styles';
 
-const CONTROLS_HIDDEN_CLASS = 'ytp-autohide';
 const CONTROLS_HIDDEN_ATTR = 'data-mjp-controls-hidden';
+const SUPPRESSED_ATTR = 'data-mjp-suppressed';
+
+export interface SubtitleOverlayOptions {
+  controlsHiddenClass?: string;
+  suppressedClass?: string;
+}
 
 export class SubtitleOverlay {
   private host: HTMLElement;
   private root: ShadowRoot;
   private observer: MutationObserver;
 
-  constructor(private container: HTMLElement) {
+  constructor(
+    private container: HTMLElement,
+    private options: SubtitleOverlayOptions = {},
+  ) {
     linkFontStylesheet(browser.runtime.getURL(FONTS_CSS_PATH));
     this.host = document.createElement('div');
     this.host.setAttribute('data-mjp-overlay', '');
@@ -19,9 +27,9 @@ export class SubtitleOverlay {
     const style = document.createElement('style');
     style.textContent = OVERLAY_CSS;
     this.root.append(style);
-    this.syncControlsState();
+    this.syncContainerState();
     container.append(this.host);
-    this.observer = new MutationObserver(() => this.syncControlsState());
+    this.observer = new MutationObserver(() => this.syncContainerState());
     this.observer.observe(container, { attributes: true, attributeFilter: ['class'] });
   }
 
@@ -47,8 +55,12 @@ export class SubtitleOverlay {
     return el;
   }
 
-  private syncControlsState(): void {
-    const hidden = this.container.classList.contains(CONTROLS_HIDDEN_CLASS);
-    this.host.toggleAttribute(CONTROLS_HIDDEN_ATTR, hidden);
+  private syncContainerState(): void {
+    this.host.toggleAttribute(CONTROLS_HIDDEN_ATTR, this.containerHas(this.options.controlsHiddenClass));
+    this.host.toggleAttribute(SUPPRESSED_ATTR, this.containerHas(this.options.suppressedClass));
+  }
+
+  private containerHas(className: string | undefined): boolean {
+    return className !== undefined && this.container.classList.contains(className);
   }
 }

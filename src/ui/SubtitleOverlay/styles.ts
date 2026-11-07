@@ -16,6 +16,9 @@ export const OVERLAY_CSS = `
   :host([data-mjp-controls-hidden]) {
     --mjp-overlay-bottom: 4%;
   }
+  :host([data-mjp-suppressed]) {
+    display: none;
+  }
   .mjp-sub {
     display: flex;
     flex-direction: column;
