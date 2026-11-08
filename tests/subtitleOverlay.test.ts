@@ -74,6 +74,23 @@ describe('SubtitleOverlay', () => {
     o.destroy();
   });
 
+  it('calls onSuppressed once when the suppressed state turns on', async () => {
+    const c = document.createElement('div');
+    const onSuppressed = vi.fn();
+    new SubtitleOverlay(c, { ...YOUTUBE_CLASSES, onSuppressed });
+    c.classList.add('ad-showing');
+    await nextMutation();
+    expect(onSuppressed).toHaveBeenCalledTimes(1);
+    c.classList.add('unrelated');
+    await nextMutation();
+    expect(onSuppressed).toHaveBeenCalledTimes(1);
+    c.classList.remove('ad-showing');
+    await nextMutation();
+    c.classList.add('ad-showing');
+    await nextMutation();
+    expect(onSuppressed).toHaveBeenCalledTimes(2);
+  });
+
   it('starts hidden when the container already has the suppressed class', () => {
     const c = document.createElement('div');
     c.className = 'ad-showing';

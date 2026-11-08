@@ -72,6 +72,7 @@ export default defineContentScript({
           return new SubtitleOverlay(player, {
             ...OVERLAY_OPTIONS,
             onWordClick: (word, anchor) => void wordLookup.open(word, anchor),
+            onSuppressed: () => wordLookup.close(),
             onDestroy: () => wordLookup.dispose(),
           });
         },

@@ -26,6 +26,7 @@ export interface SubtitleOverlayOptions {
   controlsHiddenClass?: string;
   suppressedClass?: string;
   onWordClick?: (word: WordRef, anchor: DOMRect) => void;
+  onSuppressed?: () => void;
   onDestroy?: () => void;
 }
 
@@ -132,7 +133,10 @@ export class SubtitleOverlay {
 
   private syncContainerState(): void {
     this.host.toggleAttribute(CONTROLS_HIDDEN_ATTR, this.containerHas(this.options.controlsHiddenClass));
-    this.host.toggleAttribute(SUPPRESSED_ATTR, this.containerHas(this.options.suppressedClass));
+    const wasSuppressed = this.host.hasAttribute(SUPPRESSED_ATTR);
+    const suppressed = this.containerHas(this.options.suppressedClass);
+    this.host.toggleAttribute(SUPPRESSED_ATTR, suppressed);
+    if (suppressed && !wasSuppressed) this.options.onSuppressed?.();
   }
 
   private containerHas(className: string | undefined): boolean {
