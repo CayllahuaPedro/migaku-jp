@@ -94,6 +94,19 @@ describe('WordLookup', () => {
     expect(video.play).toHaveBeenCalledTimes(1);
   });
 
+  it('warns instead of leaving an unhandled rejection when resuming fails', async () => {
+    const { video, wl } = setup();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = new DOMException('interrupted', 'AbortError');
+    video.play.mockImplementation(() => Promise.reject(error));
+    await wl.open(word('猫'), anchor);
+    wl.close();
+    await flush();
+    await flush();
+    expect(warn).toHaveBeenCalledWith('[yabai-jp] resume failed', error);
+    warn.mockRestore();
+  });
+
   it('does not resume after the user pressed play while open', async () => {
     const { video, wl } = setup();
     await wl.open(word('猫'), anchor);

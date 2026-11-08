@@ -81,7 +81,8 @@ export class WordLookup {
     this.pausedByUs = false;
     this.resumeTimer = setTimeout(() => {
       this.resumeTimer = undefined;
-      if (this.deps.video.paused) void this.deps.video.play();
+      if (!this.deps.video.paused) return;
+      Promise.resolve(this.deps.video.play()).catch((error) => console.warn('[yabai-jp] resume failed', error));
     }, 0);
   }
 
