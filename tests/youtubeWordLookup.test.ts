@@ -214,4 +214,25 @@ describe('WordLookup', () => {
     expect(video.play).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
+
+  it('close then dispose before timers: play not called', async () => {
+    const { video, wl } = setup();
+    await wl.open(word('猫'), anchor);
+    wl.close();
+    wl.dispose();
+    await flush();
+    expect(video.play).not.toHaveBeenCalled();
+  });
+
+  it('close then open before timers: play not called, and closing again resumes once', async () => {
+    const { video, wl } = setup();
+    await wl.open(word('猫'), anchor);
+    wl.close();
+    await wl.open(word('犬'), anchor);
+    await flush();
+    expect(video.play).not.toHaveBeenCalled();
+    wl.close();
+    await flush();
+    expect(video.play).toHaveBeenCalledTimes(1);
+  });
 });

@@ -25,6 +25,7 @@ export class WordLookup {
   private requestId = 0;
   private isOpen = false;
   private pausedByUs = false;
+  private resumeTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(private readonly deps: WordLookupDeps) {
     this.doc = deps.doc ?? document;
@@ -37,6 +38,11 @@ export class WordLookup {
 
   async open(word: WordRef, anchor: DOMRect): Promise<void> {
     const id = ++this.requestId;
+    if (this.resumeTimer !== undefined) {
+      clearTimeout(this.resumeTimer);
+      this.resumeTimer = undefined;
+      this.pausedByUs = true;
+    }
     if (!this.isOpen) {
       this.isOpen = true;
       this.listen();
@@ -73,7 +79,8 @@ export class WordLookup {
     this.isOpen = false;
     if (!this.pausedByUs) return;
     this.pausedByUs = false;
-    setTimeout(() => {
+    this.resumeTimer = setTimeout(() => {
+      this.resumeTimer = undefined;
       if (this.deps.video.paused) void this.deps.video.play();
     }, 0);
   }
@@ -84,6 +91,8 @@ export class WordLookup {
     this.unlisten();
     this.isOpen = false;
     this.pausedByUs = false;
+    clearTimeout(this.resumeTimer);
+    this.resumeTimer = undefined;
     this.host.remove();
   }
 
