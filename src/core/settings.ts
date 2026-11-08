@@ -1,9 +1,10 @@
 export interface Settings {
   youtubeDualSubs: boolean;
   nativeLang: string;
+  pauseOnLookup: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { youtubeDualSubs: true, nativeLang: 'en' };
+export const DEFAULT_SETTINGS: Settings = { youtubeDualSubs: true, nativeLang: 'en', pauseOnLookup: true };
 
 export const NATIVE_LANGS: { code: string; label: string }[] = [
   { code: 'en', label: 'English' },

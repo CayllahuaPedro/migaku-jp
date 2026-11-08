@@ -69,6 +69,7 @@ document.getElementById('revert')!.addEventListener('click', async () => {
 });
 
 const dualSubsInput = document.getElementById('yt-dual') as HTMLInputElement;
+const pauseInput = document.getElementById('yt-pause') as HTMLInputElement;
 const nativeLangSelect = document.getElementById('native-lang') as HTMLSelectElement;
 
 nativeLangSelect.replaceChildren(
@@ -77,11 +78,15 @@ nativeLangSelect.replaceChildren(
 
 getSettings().then((settings) => {
   dualSubsInput.checked = settings.youtubeDualSubs;
+  pauseInput.checked = settings.pauseOnLookup;
   nativeLangSelect.value = settings.nativeLang;
 });
 
 dualSubsInput.addEventListener('change', () =>
   saveSettings({ youtubeDualSubs: dualSubsInput.checked }),
+);
+pauseInput.addEventListener('change', () =>
+  saveSettings({ pauseOnLookup: pauseInput.checked }),
 );
 nativeLangSelect.addEventListener('change', () =>
   saveSettings({ nativeLang: nativeLangSelect.value }),

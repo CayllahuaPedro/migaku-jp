@@ -33,7 +33,7 @@ const keyOf = (url: string) => {
   return tlang ? `${params.get('lang')}>${tlang}` : (params.get('lang') ?? '');
 };
 
-const ON: Settings = { youtubeDualSubs: true, nativeLang: 'en' };
+const ON: Settings = { youtubeDualSubs: true, nativeLang: 'en', pauseOnLookup: true };
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
