@@ -4,6 +4,7 @@ import { syncOverlay } from '../src/ui/SubtitleOverlay/sync';
 import { OVERLAY_CSS } from '../src/ui/SubtitleOverlay/styles';
 import { PITCH_COLORS_ON_DARK } from '../src/ui/theme';
 import type { RenderToken } from '../src/core/annotate';
+import type { LineTokens } from '../src/surfaces/youtube/cueAnnotator';
 
 const hostOf = (c: HTMLElement) => c.querySelector('[data-mjp-overlay]') as HTMLElement;
 
@@ -109,10 +110,10 @@ describe('syncOverlay', () => {
     const detach = syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }]);
     Object.defineProperty(video, 'currentTime', { value: 1, configurable: true });
     video.dispatchEvent(new Event('timeupdate'));
-    expect(spy).toHaveBeenLastCalledWith('あ', 'a');
+    expect(spy).toHaveBeenLastCalledWith('あ', 'a', null);
     Object.defineProperty(video, 'currentTime', { value: 5, configurable: true });
     video.dispatchEvent(new Event('seeked'));
-    expect(spy).toHaveBeenLastCalledWith(null, null);
+    expect(spy).toHaveBeenLastCalledWith(null, null, null);
     detach();
     video.dispatchEvent(new Event('timeupdate'));
     expect(spy).toHaveBeenCalledTimes(2);
@@ -125,7 +126,7 @@ describe('syncOverlay', () => {
     const o = new SubtitleOverlay(c);
     const spy = vi.spyOn(o, 'setLines');
     syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }]);
-    expect(spy).toHaveBeenCalledWith('あ', 'a');
+    expect(spy).toHaveBeenCalledWith('あ', 'a', null);
   });
 
   it('clears lines left by a previous attach when no cue is active', () => {
@@ -136,7 +137,61 @@ describe('syncOverlay', () => {
     o.setLines('古い', 'old');
     const spy = vi.spyOn(o, 'setLines');
     syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }]);
-    expect(spy).toHaveBeenCalledWith(null, null);
+    expect(spy).toHaveBeenCalledWith(null, null, null);
+  });
+
+  describe('with line tokens', () => {
+    const toks: RenderToken[] = [{ surface: 'あ', ruby: null, pattern: 'unknown', basicForm: 'あ' }];
+    const setup = () => {
+      const map = new Map<string, RenderToken[]>();
+      const listeners = new Set<() => void>();
+      const lineTokens: LineTokens = {
+        get: (text) => map.get(text) ?? null,
+        onChange: (cb) => {
+          listeners.add(cb);
+          return () => listeners.delete(cb);
+        },
+      };
+      const video = document.createElement('video');
+      Object.defineProperty(video, 'currentTime', { value: 1, configurable: true });
+      const o = new SubtitleOverlay(document.createElement('div'));
+      const spy = vi.spyOn(o, 'setLines');
+      const detach = syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }], lineTokens);
+      return { map, listeners, spy, detach, video };
+    };
+
+    it('passes available tokens for the active primary line', () => {
+      const map = new Map([['あ', toks]]);
+      const lineTokens: LineTokens = { get: (t) => map.get(t) ?? null, onChange: () => () => {} };
+      const video = document.createElement('video');
+      Object.defineProperty(video, 'currentTime', { value: 1, configurable: true });
+      const o = new SubtitleOverlay(document.createElement('div'));
+      const spy = vi.spyOn(o, 'setLines');
+      syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }], lineTokens);
+      expect(spy).toHaveBeenCalledWith('あ', 'a', toks);
+    });
+
+    it('re-renders the same line when its tokens arrive while paused', () => {
+      const { map, listeners, spy } = setup();
+      expect(spy).toHaveBeenLastCalledWith('あ', 'a', null);
+      map.set('あ', toks);
+      listeners.forEach((cb) => cb());
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(spy).toHaveBeenLastCalledWith('あ', 'a', toks);
+    });
+
+    it('does not re-render when nothing changed on notify', () => {
+      const { listeners, spy } = setup();
+      listeners.forEach((cb) => cb());
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it('detach unsubscribes from token changes', () => {
+      const { listeners, detach } = setup();
+      expect(listeners.size).toBe(1);
+      detach();
+      expect(listeners.size).toBe(0);
+    });
   });
 });
 
