@@ -255,6 +255,26 @@ describe('SubtitleOverlay interactive primary line', () => {
     expect(outer).not.toHaveBeenCalled();
   });
 
+  it('word click includes parts parsed from data-mjp-parts', () => {
+    const parts = [{ surface: '食', basicForm: '食う', reading: 'ショク' }];
+    const onWordClick = vi.fn();
+    const c = document.createElement('div');
+    new SubtitleOverlay(c, { onWordClick }).setLines('猫、', null, [{ ...tokens[0], parts }, tokens[1]]);
+    const token = hostOf(c).shadowRoot!.querySelector('.mjp-token') as HTMLElement;
+    token.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(onWordClick.mock.calls[0][0].parts).toEqual(parts);
+  });
+
+  it('a malformed data-mjp-parts yields a WordRef without parts', () => {
+    const onWordClick = vi.fn();
+    const c = document.createElement('div');
+    new SubtitleOverlay(c, { onWordClick }).setLines('猫、', null, tokens);
+    const token = hostOf(c).shadowRoot!.querySelector('.mjp-token') as HTMLElement;
+    token.dataset.mjpParts = '{';
+    token.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(onWordClick.mock.calls[0][0]).not.toHaveProperty('parts');
+  });
+
   it.each(['mousedown', 'pointerdown', 'dblclick'])('stops %s on a word from reaching the player', (type) => {
     const c = document.createElement('div');
     const outer = vi.fn();

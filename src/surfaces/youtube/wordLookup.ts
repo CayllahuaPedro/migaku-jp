@@ -62,6 +62,7 @@ export class WordLookup {
           accentPos: res.accentPos,
           entries: res.entries ?? [],
           posTags: res.posTags,
+          parts: res.parts,
         },
         'above',
       );

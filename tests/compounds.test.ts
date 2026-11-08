@@ -3,6 +3,7 @@ import {
   compoundCandidates,
   isCompoundEligible,
   mergeCompounds,
+  parseParts,
 } from '../src/core/compounds';
 import type { JpToken } from '../src/core/tokenizer';
 
@@ -87,5 +88,16 @@ describe('mergeCompounds', () => {
   it('leaves tokens unchanged when nothing is found', () => {
     const tokens = [noun('猫', 'ネコ'), noun('犬', 'イヌ')];
     expect(mergeCompounds(tokens, {})).toEqual(tokens);
+  });
+});
+
+describe('parseParts', () => {
+  it('parseParts accepts a valid array and rejects malformed input', () => {
+    const parts = [{ surface: '食肉', basicForm: '食肉', reading: 'ショクニク' }];
+    expect(parseParts(undefined)).toBeUndefined();
+    expect(parseParts('{')).toBeUndefined();
+    expect(parseParts('{"a":1}')).toBeUndefined();
+    expect(parseParts('[{"surface":1}]')).toBeUndefined();
+    expect(parseParts(JSON.stringify(parts))).toEqual(parts);
   });
 });

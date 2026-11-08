@@ -1,4 +1,6 @@
 import { browser } from 'wxt/browser';
+import { parseParts } from '../../core/compounds';
+import type { TokenQuery } from '../../core/messages';
 import type { RenderToken } from '../../core/annotate';
 import { renderTokens } from '../../core/render';
 import { linkFontStylesheet } from '../fonts';
@@ -14,6 +16,7 @@ export interface WordRef {
   surface: string;
   basicForm: string;
   reading?: string;
+  parts?: TokenQuery[];
 }
 
 interface RenderedLine {
@@ -119,11 +122,13 @@ export class SubtitleOverlay {
         event.stopPropagation();
         if (type === 'pointerdown') this.pressedOnWord = true;
         if (type !== 'click') return;
+        const parts = parseParts(token.dataset.mjpParts);
         onWordClick(
           {
             surface: token.dataset.mjpSurface ?? '',
             basicForm: token.dataset.mjpBasicForm ?? '',
             reading: token.dataset.mjpReading,
+            ...(parts && { parts }),
           },
           token.getBoundingClientRect(),
         );

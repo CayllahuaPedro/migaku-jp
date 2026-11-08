@@ -1,4 +1,5 @@
 import { hiraganaToKatakana } from './kana';
+import type { TokenQuery } from './messages';
 import type { JpToken } from './tokenizer';
 
 export const MAX_COMPOUND_TOKENS = 4;
@@ -71,4 +72,20 @@ export function mergeCompounds(
     }
   }
   return result;
+}
+
+const isTokenQuery = (v: unknown): v is TokenQuery =>
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as TokenQuery).surface === 'string' &&
+  typeof (v as TokenQuery).basicForm === 'string';
+
+export function parseParts(raw: string | undefined): TokenQuery[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.every(isTokenQuery) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }

@@ -1,4 +1,5 @@
 import type { DictEntry, PosTagMap } from '../../core/types';
+import type { PartResult } from '../../core/messages';
 import { classifyPitch, type PitchPattern } from '../../core/pitch';
 import { PITCH_COLOR_CSS, THEME_VARS } from '../theme';
 
@@ -8,6 +9,7 @@ export interface PopupData {
   accentPos: number | null;
   entries: DictEntry[];
   posTags?: PosTagMap;
+  parts?: PartResult[];
 }
 
 const PITCH_LABELS: Record<PitchPattern, string> = {
@@ -27,6 +29,22 @@ const escapeHtml = (s: string) =>
 
 const renderChip = (code: string, description?: string) =>
   `<span class="mjp-chip"${description ? ` title="${escapeHtml(description)}"` : ''}>${escapeHtml(code)}</span>`;
+
+const renderParts = (parts: PartResult[] | undefined) => {
+  if (!parts?.length) return '';
+  const items = parts
+    .map((p) => {
+      const gloss = p.entries[0]?.senses[0]?.gloss[0];
+      return `
+        <li>
+          <span class="mjp-part-word">${escapeHtml(p.word)}</span>
+          ${p.reading ? `<span class="mjp-part-reading">${escapeHtml(p.reading)}</span>` : ''}
+          ${gloss ? `<span class="mjp-part-gloss">${escapeHtml(gloss)}</span>` : ''}
+        </li>`;
+    })
+    .join('');
+  return `<div class="mjp-parts"><p class="mjp-parts-title">Partes</p><ul>${items}</ul></div>`;
+};
 
 export function renderPopupHtml(data: PopupData): string {
   const pattern = data.reading
@@ -66,6 +84,7 @@ export function renderPopupHtml(data: PopupData): string {
           ? '<p class="mjp-nodef">No está en el diccionario</p>'
           : `<ol class="mjp-senses">${senses}</ol>${more}`
       }
+      ${renderParts(data.parts)}
     </div>`;
 }
 
@@ -159,5 +178,19 @@ ${PITCH_COLOR_CSS}
 .mjp-chip[title] { cursor: help; }
 .mjp-gloss { color: var(--mjp-text); }
 .mjp-more { margin: 10px 0 0 26px; color: var(--mjp-muted); font-size: 12px; }
+.mjp-parts { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--mjp-line); }
+.mjp-parts-title {
+  margin: 0 0 6px;
+  color: var(--mjp-muted);
+  font: 600 10px/1.2 var(--mjp-font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mjp-parts ul { margin: 0; padding: 0; list-style: none; }
+.mjp-parts li { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; font-size: 12px; }
+.mjp-parts li:first-child { margin-top: 0; }
+.mjp-part-word { font: 700 14px/1.3 var(--mjp-font-display); }
+.mjp-part-reading { color: var(--mjp-muted); }
+.mjp-part-gloss { color: var(--mjp-text); }
 .mjp-nodef { margin: 0; color: var(--mjp-muted); font-style: italic; }
 `;

@@ -60,6 +60,18 @@ afterEach(() => {
 });
 
 describe('WordLookup', () => {
+  it('passes parts to lookup and part results to the popup', async () => {
+    const parts = [{ surface: '食肉', basicForm: '食肉', reading: 'ショクニク' }];
+    const { wl, lookup, popupRoot } = setup({
+      lookup: async (w) => ({ ...result(w.basicForm), parts: [{ word: '食肉', entries: [] }] }),
+    });
+    const w = { ...word('食肉目'), parts };
+    await wl.open(w, anchor);
+    expect(lookup).toHaveBeenCalledWith(expect.objectContaining({ parts }));
+    expect(popupRoot().textContent).toContain('Partes');
+    expect(popupRoot().querySelector('.mjp-parts')!.textContent).toContain('食肉');
+  });
+
   it('opening pauses a playing video when enabled and shows the popup above the word', async () => {
     const { video, wl, shown, popupRoot } = setup();
     const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(100);

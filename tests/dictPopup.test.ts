@@ -18,6 +18,31 @@ const data = {
 };
 
 describe('renderPopupHtml', () => {
+  it("renders a Partes section with each part's word, reading and first gloss", () => {
+    const entry = {
+      id: '2',
+      kanji: ['食肉'],
+      kana: ['しょくにく'],
+      forms: ['食肉'],
+      senses: [{ pos: ['n'], gloss: ['meat', 'flesh'] }],
+    };
+    const html = renderPopupHtml({
+      ...data,
+      parts: [
+        { word: '食肉', reading: 'しょくにく', entries: [entry] },
+        { word: '目', reading: 'め', entries: [] },
+        { word: '<b>', entries: [] },
+      ],
+    });
+    for (const text of ['Partes', '食肉', 'しょくにく', 'meat', '目']) expect(html).toContain(text);
+    expect(html).not.toContain('flesh');
+    expect(html).toContain('&lt;b&gt;');
+    expect(html).not.toContain('<b>');
+  });
+  it('omits the Partes section without parts', () => {
+    expect(renderPopupHtml(data)).not.toContain('Partes');
+    expect(renderPopupHtml({ ...data, parts: [] })).not.toContain('Partes');
+  });
   it('shows word, reading, pattern and glosses', () => {
     const html = renderPopupHtml(data);
     expect(html).toContain('猫');

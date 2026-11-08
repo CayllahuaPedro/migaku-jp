@@ -1,3 +1,4 @@
+import { parseParts } from '../src/core/compounds';
 import { analyzeText } from '../src/core/analyze';
 import { initTokenizer, tokenize } from '../src/core/tokenizer';
 import {
@@ -69,12 +70,14 @@ export default defineContentScript({
         mjpBasicForm: basicForm = surface,
         mjpReading: reading,
       } = el.dataset;
+      const parts = parseParts(el.dataset.mjpParts);
       try {
         const res = (await browser.runtime.sendMessage({
           type: 'lookup',
           basicForm,
           surface,
           reading,
+          parts,
         })) as LookupResult | ErrorResult;
         if (isErrorResult(res)) {
           console.warn('[yabai-jp] lookup falló', res.error);
@@ -86,6 +89,7 @@ export default defineContentScript({
           accentPos: res.accentPos,
           entries: res.entries ?? [],
           posTags: res.posTags,
+          parts: res.parts,
         });
       } catch (err) {
         console.warn('[yabai-jp] lookup falló', err);
