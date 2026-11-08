@@ -35,6 +35,27 @@ const assets = {
       forms: ['ことば'],
       senses: [{ pos: ['n'], gloss: ['word'] }],
     },
+    {
+      id: '5',
+      kanji: [],
+      kana: ['コンピューターウイルス', 'コンピュータウイルス'],
+      forms: ['コンピューターウイルス', 'コンピュータウイルス'],
+      senses: [{ pos: ['n'], gloss: ['computer virus'] }],
+    },
+    {
+      id: '6',
+      kanji: ['目'],
+      kana: ['もく'],
+      forms: ['目', 'もく'],
+      senses: [{ pos: ['n'], gloss: ['order (taxonomy)'] }],
+    },
+    {
+      id: '7',
+      kanji: ['目'],
+      kana: ['め'],
+      forms: ['目', 'め'],
+      senses: [{ pos: ['n'], gloss: ['eye'] }],
+    },
   ] as DictEntry[],
   pitch: { '飼う|かう': 1, 飼う: 1, '食肉目|しょくにくもく': 4 },
 };
@@ -95,6 +116,16 @@ describe('handleBackgroundMessage', () => {
     expect(res).toEqual({ found: { 食肉目: 'しょくにくもく', ことば: 'ことば' } });
   });
 
+  it('find-compounds uses an all-kana candidate as its own reading', async () => {
+    const res = await handleBackgroundMessage(
+      db,
+      { type: 'find-compounds', forms: ['コンピュータウイルス'] },
+      loadAssets,
+      loadPosTags,
+    );
+    expect(res).toEqual({ found: { コンピュータウイルス: 'コンピュータウイルス' } });
+  });
+
   it('find-compounds with no forms returns an empty map', async () => {
     const res = await handleBackgroundMessage(
       db,
@@ -125,7 +156,7 @@ describe('handleBackgroundMessage', () => {
     expect(res.entries.map((e) => e.id)).toContain('2');
     expect(res.parts).toEqual([
       { word: '食肉', reading: 'しょくにく', entries: [expect.objectContaining({ id: '3' })] },
-      { word: '目', reading: 'め', entries: [] },
+      { word: '目', reading: 'め', entries: expect.any(Array) },
     ]);
   });
 

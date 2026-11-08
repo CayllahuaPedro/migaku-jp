@@ -1,5 +1,5 @@
 import { isImported, importData, lookupEntries, getAccent } from './db';
-import { katakanaToHiragana } from './kana';
+import { hasKanji, katakanaToHiragana } from './kana';
 import type {
   AnnotateResult,
   ErrorResult,
@@ -53,7 +53,7 @@ export async function handleBackgroundMessage(
       );
       const found: Record<string, string> = {};
       for (const [form, entry] of matches) {
-        if (entry) found[form] = entry.kana[0] ?? form;
+        if (entry) found[form] = hasKanji(form) ? (entry.kana[0] ?? form) : form;
       }
       return { found };
     }
