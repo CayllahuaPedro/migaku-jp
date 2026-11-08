@@ -106,6 +106,12 @@ hooks `fetch`/XHR at `document_start`, captures the player's (relative) request 
 template, and re-asks the player for captions when the first Japanese track comes back empty.
 The isolated content script talks to it over a namespaced `postMessage` bridge.
 
+**IPADIC splits compounds, so the engine merges them back.** IPADIC tokenizes 食肉目 as
+食肉 + 目 and reads each part in isolation, giving しょくにくめ instead of しょくにくもく. After
+tokenization, adjacent nouns, prefixes and suffixes are tried against the JMdict forms index,
+longest match first, up to 4 tokens. The merged token takes its reading from JMdict, and the
+popup shows the compound on top with its parts under **Partes**.
+
 **Forcing captions on leaks into every tab.** Switching the player to Japanese writes
 `yt-player-caption-*` keys to `localStorage`, which all YouTube tabs share — other videos
 started auto-translating to Japanese. The MAIN-world agent snapshots those keys before
@@ -144,7 +150,7 @@ Load `.output/chrome-mv3` as an unpacked extension at `chrome://extensions`.
 ## Tests
 
 ```bash
-npm test    # 200 unit tests across 25 files — vitest, fake-indexeddb, happy-dom
+npm test    # 236 unit tests across 27 files — vitest, fake-indexeddb, happy-dom
 npm run e2e # smoke test in a real Chrome instance with the extension loaded
 ```
 
@@ -159,9 +165,6 @@ resolution, `web_accessible_resources`) only appear in a real MV3 runtime.
 
 Planned:
 
-- Compound merging after tokenization. IPADIC splits 食肉目 into 食肉 + 目 even though JMdict
-  holds the full entry; adjacent tokens should be merged when their concatenation exists in
-  the dictionary.
 - Batched annotation — currently one message per text node, which is slow on large pages.
 - Service-worker keepalive and progress reporting during the initial 44 MB import.
 - Furigana in the subtitles and word frequency in the popup.
