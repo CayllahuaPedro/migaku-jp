@@ -258,6 +258,98 @@ describe('SubtitleOverlay interactive primary line', () => {
     expect(outer).toHaveBeenCalled();
   });
 
+  it('keeps the primary line element when only the secondary text changes', () => {
+    const c = document.createElement('div');
+    const overlay = new SubtitleOverlay(c);
+    overlay.setLines('猫、', 'Cat,', tokens);
+    const root = hostOf(c).shadowRoot!;
+    const primary = root.querySelector('.mjp-sub-primary');
+    overlay.setLines('猫、', 'Dog', tokens);
+    expect(root.querySelector('.mjp-sub-primary')).toBe(primary);
+    expect(root.querySelector('.mjp-sub-secondary')!.textContent).toBe('Dog');
+  });
+
+  it('keeps the secondary line element when only the primary changes', () => {
+    const c = document.createElement('div');
+    const overlay = new SubtitleOverlay(c);
+    overlay.setLines('猫、', 'Cat,', tokens);
+    const root = hostOf(c).shadowRoot!;
+    const secondary = root.querySelector('.mjp-sub-secondary');
+    overlay.setLines('犬', 'Cat,');
+    expect(root.querySelector('.mjp-sub-secondary')).toBe(secondary);
+    expect(root.querySelector('.mjp-sub-primary')!.textContent).toBe('犬');
+  });
+
+  it('removes lines that become empty and keeps order primary then secondary', () => {
+    const c = document.createElement('div');
+    const overlay = new SubtitleOverlay(c);
+    overlay.setLines(null, 'Cat,');
+    overlay.setLines('猫、', 'Cat,', tokens);
+    const root = hostOf(c).shadowRoot!;
+    expect([...root.querySelectorAll('.mjp-sub-line')].map((l) => l.classList[1])).toEqual([
+      'mjp-sub-primary',
+      'mjp-sub-secondary',
+    ]);
+    overlay.setLines('猫、', null, tokens);
+    expect(root.querySelector('.mjp-sub-secondary')).toBeNull();
+    overlay.setLines(null, null);
+    expect(root.querySelector('.mjp-sub')).toBeNull();
+  });
+
+  describe('a press that started on a word', () => {
+    const press = (c: HTMLElement) => {
+      const parentClick = vi.fn();
+      document.body.append(c);
+      document.body.addEventListener('click', parentClick);
+      const overlay = new SubtitleOverlay(c, { onWordClick: vi.fn() });
+      overlay.setLines('猫、', null, tokens);
+      const token = hostOf(c).shadowRoot!.querySelector('.mjp-token') as HTMLElement;
+      token.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+      token.remove();
+      return { overlay, parentClick };
+    };
+
+    it('swallows the stray click on the container, once, and lets later clicks through', () => {
+      const c = document.createElement('div');
+      const { parentClick } = press(c);
+      c.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      expect(parentClick).not.toHaveBeenCalled();
+      c.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      expect(parentClick).toHaveBeenCalledTimes(1);
+      document.body.removeEventListener('click', parentClick);
+    });
+
+    it('stops swallowing on the next macrotask after pointerup', async () => {
+      const c = document.createElement('div');
+      const { parentClick } = press(c);
+      c.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      c.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      expect(parentClick).toHaveBeenCalledTimes(1);
+      document.body.removeEventListener('click', parentClick);
+    });
+
+    it('stops swallowing after destroy', () => {
+      const c = document.createElement('div');
+      const { overlay, parentClick } = press(c);
+      overlay.destroy();
+      c.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      expect(parentClick).toHaveBeenCalledTimes(1);
+      document.body.removeEventListener('click', parentClick);
+    });
+  });
+
+  it('does not swallow clicks when no word handler is set', () => {
+    const c = document.createElement('div');
+    const outer = vi.fn();
+    document.body.append(c);
+    document.body.addEventListener('click', outer);
+    new SubtitleOverlay(c).setLines('猫、', null, tokens);
+    c.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(outer).toHaveBeenCalledTimes(1);
+    document.body.removeEventListener('click', outer);
+  });
+
   it('calls onDestroy on destroy', () => {
     const onDestroy = vi.fn();
     new SubtitleOverlay(document.createElement('div'), { onDestroy }).destroy();
