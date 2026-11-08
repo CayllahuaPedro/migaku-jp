@@ -10,12 +10,12 @@ vi.mock('../src/core/tokenizer', () => ({
   tokenize: vi.fn(async (text: string) => {
     if (text === '猫を飼う') {
       return [
-        { surface: '猫', reading: 'ネコ', basicForm: '猫', pos: '名詞' },
-        { surface: 'を', reading: 'ヲ', basicForm: 'を', pos: '助詞' },
-        { surface: '飼う', reading: 'カウ', basicForm: '飼う', pos: '動詞' },
+        { surface: '猫', reading: 'ネコ', basicForm: '猫', pos: '名詞', posDetail: '一般' },
+        { surface: 'を', reading: 'ヲ', basicForm: 'を', pos: '助詞', posDetail: '一般' },
+        { surface: '飼う', reading: 'カウ', basicForm: '飼う', pos: '動詞', posDetail: '一般' },
       ];
     }
-    return [{ surface: text, reading: undefined, basicForm: text, pos: '名詞' }];
+    return [{ surface: text, reading: undefined, basicForm: text, pos: '名詞', posDetail: '一般' }];
   }),
 }));
 

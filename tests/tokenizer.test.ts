@@ -19,4 +19,9 @@ describe('tokenizer', () => {
     expect(tokens[0].surface).toBe('飼っ');
     expect(tokens[0].basicForm).toBe('飼う');
   });
+
+  it('exposes the POS sub-category', async () => {
+    const tokens = await tokenize('食肉目の動物');
+    expect(tokens.map((t) => t.posDetail)).toEqual(['一般', '接尾', '連体化', '一般']);
+  });
 });

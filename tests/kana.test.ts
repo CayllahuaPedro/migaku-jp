@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { katakanaToHiragana, hasKanji, hasJapanese } from '../src/core/kana';
+import { hiraganaToKatakana, katakanaToHiragana, hasKanji, hasJapanese } from '../src/core/kana';
 
 describe('katakanaToHiragana', () => {
   it('converts katakana to hiragana', () => {
@@ -24,5 +24,15 @@ describe('hasKanji / hasJapanese', () => {
     expect(hasJapanese('ネコ')).toBe(true);
     expect(hasJapanese('猫')).toBe(true);
     expect(hasJapanese('cat!')).toBe(false);
+  });
+});
+
+describe('hiraganaToKatakana', () => {
+  it('converts hiragana to katakana', () => {
+    expect(hiraganaToKatakana('しょくにくもく')).toBe('ショクニクモク');
+  });
+  it('leaves the long vowel mark and latin untouched', () => {
+    expect(hiraganaToKatakana('ー')).toBe('ー');
+    expect(hiraganaToKatakana('neko')).toBe('neko');
   });
 });

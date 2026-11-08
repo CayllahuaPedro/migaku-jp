@@ -1,10 +1,13 @@
 import kuromoji from 'kuromoji';
+import type { TokenQuery } from './messages';
 
 export interface JpToken {
   surface: string;
   reading?: string;
   basicForm: string;
   pos: string;
+  posDetail: string;
+  parts?: TokenQuery[];
 }
 
 type Tokenizer = kuromoji.Tokenizer<kuromoji.IpadicFeatures>;
@@ -35,5 +38,6 @@ export async function tokenize(text: string): Promise<JpToken[]> {
     reading: tk.reading === '*' || tk.reading === undefined ? undefined : tk.reading,
     basicForm: tk.basic_form === '*' ? tk.surface_form : tk.basic_form,
     pos: tk.pos,
+    posDetail: tk.pos_detail_1,
   }));
 }

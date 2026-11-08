@@ -6,7 +6,7 @@ import {
 } from '../src/surfaces/youtube/cueAnnotator';
 import type { JpToken } from '../src/core/tokenizer';
 
-const neko: JpToken = { surface: '猫', reading: 'ネコ', basicForm: '猫', pos: '名詞' };
+const neko: JpToken = { surface: '猫', reading: 'ネコ', basicForm: '猫', pos: '名詞', posDetail: '一般' };
 
 const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
