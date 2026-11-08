@@ -7,6 +7,13 @@ export const PITCH_COLORS: Record<Exclude<PitchPattern, 'unknown'>, string> = {
   odaka: '#23804a',
 };
 
+export const PITCH_COLORS_ON_DARK: Record<Exclude<PitchPattern, 'unknown'>, string> = {
+  heiban: '#6aa8ff',
+  atamadaka: '#ff7a7a',
+  nakadaka: '#ffb547',
+  odaka: '#5fd68f',
+};
+
 export const PITCH_COLOR_CSS = Object.entries(PITCH_COLORS)
   .map(([pattern, color]) => `.mjp-${pattern} { color: ${color}; }`)
   .join('\n');

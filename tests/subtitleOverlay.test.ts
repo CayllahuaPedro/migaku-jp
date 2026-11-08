@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { SubtitleOverlay } from '../src/ui/SubtitleOverlay';
 import { syncOverlay } from '../src/ui/SubtitleOverlay/sync';
 import { OVERLAY_CSS } from '../src/ui/SubtitleOverlay/styles';
+import { PITCH_COLORS_ON_DARK } from '../src/ui/theme';
+import type { RenderToken } from '../src/core/annotate';
 
 const hostOf = (c: HTMLElement) => c.querySelector('[data-mjp-overlay]') as HTMLElement;
 
@@ -135,5 +137,89 @@ describe('syncOverlay', () => {
     const spy = vi.spyOn(o, 'setLines');
     syncOverlay(video, o, [{ start: 0, end: 2, text: 'あ' }], [{ start: 0, end: 2, text: 'a' }]);
     expect(spy).toHaveBeenCalledWith(null, null);
+  });
+});
+
+const channel = (v: number) => {
+  const c = v / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+};
+const luminance = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+describe('SubtitleOverlay interactive primary line', () => {
+  const tokens: RenderToken[] = [
+    { surface: '猫', ruby: 'ねこ', pattern: 'atamadaka', basicForm: '猫', reading: 'ねこ' },
+    { surface: '、', ruby: null, pattern: 'unknown', basicForm: '、' },
+  ];
+
+  it('renders primary tokens as pitch-classed spans without furigana', () => {
+    const c = document.createElement('div');
+    new SubtitleOverlay(c).setLines('猫、', 'Cat,', tokens);
+    const root = hostOf(c).shadowRoot!;
+    const token = root.querySelector('.mjp-sub-primary .mjp-token') as HTMLElement;
+    expect(token.classList.contains('mjp-atamadaka')).toBe(true);
+    expect(token.dataset.mjpBasicForm).toBe('猫');
+    expect(root.querySelector('ruby, rt')).toBeNull();
+    expect(root.querySelector('.mjp-sub-primary')!.textContent).toBe('猫、');
+    expect(root.querySelector('.mjp-sub-secondary .mjp-token')).toBeNull();
+  });
+
+  it('reports a word click with its ref and rect, and swallows the event', () => {
+    const onWordClick = vi.fn();
+    const c = document.createElement('div');
+    const outer = vi.fn();
+    c.addEventListener('click', outer);
+    new SubtitleOverlay(c, { onWordClick }).setLines('猫、', null, tokens);
+    const token = hostOf(c).shadowRoot!.querySelector('.mjp-token') as HTMLElement;
+    token.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(onWordClick).toHaveBeenCalledWith({ surface: '猫', basicForm: '猫', reading: 'ねこ' }, expect.anything());
+    expect(outer).not.toHaveBeenCalled();
+  });
+
+  it.each(['mousedown', 'pointerdown', 'dblclick'])('stops %s on a word from reaching the player', (type) => {
+    const c = document.createElement('div');
+    const outer = vi.fn();
+    c.addEventListener(type, outer);
+    new SubtitleOverlay(c, { onWordClick: vi.fn() }).setLines('猫、', null, tokens);
+    hostOf(c).shadowRoot!.querySelector('.mjp-token')!
+      .dispatchEvent(new MouseEvent(type, { bubbles: true, composed: true }));
+    expect(outer).not.toHaveBeenCalled();
+  });
+
+  it('lets clicks outside words pass through', () => {
+    const c = document.createElement('div');
+    const outer = vi.fn();
+    c.addEventListener('click', outer);
+    new SubtitleOverlay(c, { onWordClick: vi.fn() }).setLines('猫、', 'Cat,', tokens);
+    hostOf(c).shadowRoot!.querySelector('.mjp-sub-secondary')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(outer).toHaveBeenCalled();
+  });
+
+  it('calls onDestroy on destroy', () => {
+    const onDestroy = vi.fn();
+    new SubtitleOverlay(document.createElement('div'), { onDestroy }).destroy();
+    expect(onDestroy).toHaveBeenCalledOnce();
+  });
+
+  it('keeps tokens click-through except the words, with dark-background pitch colours', () => {
+    expect(OVERLAY_CSS).toMatch(/\.mjp-token[^{]*\{[^}]*pointer-events:\s*auto/);
+    expect(OVERLAY_CSS).toMatch(/\.mjp-token[^{]*\{[^}]*cursor:\s*pointer/);
+    for (const [pattern, color] of Object.entries(PITCH_COLORS_ON_DARK)) {
+      expect(OVERLAY_CSS).toContain(`.mjp-${pattern} { color: ${color}; }`);
+    }
+  });
+
+  it('dark pitch colours reach 4.5:1 against the line background #080c20', () => {
+    for (const color of Object.values(PITCH_COLORS_ON_DARK)) {
+      expect(contrast(color, '#080c20')).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

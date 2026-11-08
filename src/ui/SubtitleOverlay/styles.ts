@@ -1,4 +1,8 @@
-import { THEME_VARS } from '../theme';
+import { PITCH_COLORS_ON_DARK, THEME_VARS } from '../theme';
+
+const PITCH_COLOR_ON_DARK_CSS = Object.entries(PITCH_COLORS_ON_DARK)
+  .map(([pattern, color]) => `.mjp-${pattern} { color: ${color}; }`)
+  .join('\n  ');
 
 export const OVERLAY_CSS = `
   :host {
@@ -47,4 +51,13 @@ export const OVERLAY_CSS = `
     font-size: clamp(13px, 2.2cqw, 34px);
     color: var(--mjp-muted);
   }
+  .mjp-token {
+    pointer-events: auto;
+    cursor: pointer;
+    border-radius: 0.2em;
+  }
+  .mjp-token:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+  ${PITCH_COLOR_ON_DARK_CSS}
 `;
