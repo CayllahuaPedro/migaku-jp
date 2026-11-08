@@ -47,7 +47,7 @@ export function mergeCompounds(
     for (; len >= 2; len--) {
       const parts = tokens.slice(i, i + len);
       const surface = parts.map((t) => t.surface).join('');
-      if (surface in found) {
+      if (Object.hasOwn(found, surface)) {
         merged = {
           surface,
           basicForm: surface,

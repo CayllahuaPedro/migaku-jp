@@ -89,6 +89,19 @@ describe('mergeCompounds', () => {
     const tokens = [noun('猫', 'ネコ'), noun('犬', 'イヌ')];
     expect(mergeCompounds(tokens, {})).toEqual(tokens);
   });
+
+  it('mergeCompounds ignores inherited keys like __proto__ and constructor', () => {
+    const proto = [
+      tk('__', '名詞', 'サ変接続'),
+      tk('proto', '名詞', 'サ変接続'),
+      tk('__', '名詞', 'サ変接続'),
+    ];
+    expect(mergeCompounds(proto, {})).toEqual(proto);
+    const ctor = [tk('constr', '名詞', 'サ変接続'), tk('uctor', '名詞', 'サ変接続')];
+    expect(mergeCompounds(ctor, {})).toEqual(ctor);
+    const real = [tk('con', '名詞', 'サ変接続'), tk('structor', '名詞', 'サ変接続')];
+    expect(mergeCompounds(real, {})).toEqual(real);
+  });
 });
 
 describe('parseParts', () => {
