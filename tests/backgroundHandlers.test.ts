@@ -160,6 +160,24 @@ describe('handleBackgroundMessage', () => {
     ]);
   });
 
+  it.each([
+    ['モク', ['6', '7']],
+    ['メ', ['7', '6']],
+  ])('lookup parts prefer entries matching the part reading %s', async (reading, ids) => {
+    const res = (await handleBackgroundMessage(
+      db,
+      {
+        type: 'lookup',
+        surface: '食肉目',
+        basicForm: '食肉目',
+        parts: [{ surface: '目', basicForm: '目', reading }],
+      },
+      loadAssets,
+      loadPosTags,
+    )) as LookupResult;
+    expect(res.parts![0].entries.map((e) => e.id)).toEqual(ids);
+  });
+
   it('lookup without parts has no parts field', async () => {
     const res = (await handleBackgroundMessage(
       db,

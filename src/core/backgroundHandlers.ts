@@ -73,11 +73,16 @@ export async function handleBackgroundMessage(
       );
       if (!msg.parts) return { entries, accentPos, posTags };
       const parts = await Promise.all(
-        msg.parts.map(async (part) => ({
-          word: part.basicForm,
-          reading: part.reading ? katakanaToHiragana(part.reading) : undefined,
-          entries: await lookupByBasicFormOrSurface(db, part),
-        })),
+        msg.parts.map(async (part) => {
+          const reading = part.reading ? katakanaToHiragana(part.reading) : undefined;
+          const partEntries = await lookupByBasicFormOrSurface(db, part);
+          const matchesReading = (e: DictEntry) => (reading && e.kana.includes(reading) ? 0 : 1);
+          return {
+            word: part.basicForm,
+            reading,
+            entries: partEntries.toSorted((a, b) => matchesReading(a) - matchesReading(b)),
+          };
+        }),
       );
       return { entries, accentPos, posTags, parts };
     }
