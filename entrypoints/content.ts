@@ -1,4 +1,5 @@
-import { initTokenizer } from '../src/core/tokenizer';
+import { analyzeText } from '../src/core/analyze';
+import { initTokenizer, tokenize } from '../src/core/tokenizer';
 import {
   findJapaneseTextNodes,
   parseTextNode,
@@ -12,6 +13,7 @@ import {
   type Msg,
   type AnnotateResult,
   type ErrorResult,
+  type FindCompoundsResult,
   type LookupResult,
   type TokenQuery,
 } from '../src/core/messages';
@@ -30,12 +32,23 @@ export default defineContentScript({
       return res;
     };
 
+    const findCompounds = async (forms: string[]) => {
+      const res = (await browser.runtime.sendMessage({ type: 'find-compounds', forms })) as
+        | FindCompoundsResult
+        | ErrorResult;
+      if (isErrorResult(res)) throw new Error(res.error);
+      return res.found;
+    };
+
+    const analyze = (text: string) =>
+      analyzeText(text, { tokenize, findCompounds, annotate });
+
     async function parsePage() {
       injectStyles(browser.runtime.getURL(FONTS_CSS_PATH));
       await initTokenizer(browser.runtime.getURL('/kuromoji/'));
       for (const node of findJapaneseTextNodes(document.body)) {
         try {
-          await parseTextNode(node, annotate);
+          await parseTextNode(node, analyze);
         } catch (err) {
           console.warn('[yabai-jp] nodo falló, se omite', err);
         }

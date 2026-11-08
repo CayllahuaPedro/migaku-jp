@@ -1,6 +1,4 @@
-import { buildRenderTokens, type RenderToken } from '../../core/annotate';
-import type { AnnotateResult, TokenQuery } from '../../core/messages';
-import type { JpToken } from '../../core/tokenizer';
+import type { RenderToken } from '../../core/annotate';
 
 export interface LineTokens {
   get(text: string): RenderToken[] | null;
@@ -9,8 +7,7 @@ export interface LineTokens {
 
 export interface CueAnnotatorDeps {
   ready(): Promise<boolean>;
-  tokenize(text: string): Promise<JpToken[]>;
-  annotate(tokens: TokenQuery[]): Promise<AnnotateResult>;
+  analyze(text: string): Promise<RenderToken[]>;
 }
 
 export class CueAnnotator implements LineTokens {
@@ -75,12 +72,9 @@ export class CueAnnotator implements LineTokens {
 
   private async annotateOne(text: string): Promise<void> {
     try {
-      const tokens = await this.deps.tokenize(text);
-      const { accents } = await this.deps.annotate(
-        tokens.map((t) => ({ basicForm: t.basicForm, surface: t.surface, reading: t.reading })),
-      );
+      const tokens = await this.deps.analyze(text);
       if (this.disposed) return;
-      this.cache.set(text, buildRenderTokens(tokens, accents));
+      this.cache.set(text, tokens);
       for (const cb of [...this.listeners]) cb();
     } catch (error) {
       this.warnOnce(error);

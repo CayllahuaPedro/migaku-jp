@@ -4,17 +4,22 @@ import {
   createEngineReady,
   type CueAnnotatorDeps,
 } from '../src/surfaces/youtube/cueAnnotator';
-import type { JpToken } from '../src/core/tokenizer';
+import type { RenderToken } from '../src/core/annotate';
 
-const neko: JpToken = { surface: '猫', reading: 'ネコ', basicForm: '猫', pos: '名詞', posDetail: '一般' };
+const neko: RenderToken = {
+  surface: '猫',
+  ruby: 'ねこ',
+  pattern: 'atamadaka',
+  basicForm: '猫',
+  reading: 'ねこ',
+};
 
 const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
 function makeDeps(overrides: Partial<CueAnnotatorDeps> = {}): CueAnnotatorDeps {
   return {
     ready: async () => true,
-    tokenize: async () => [neko],
-    annotate: async () => ({ accents: [1] }),
+    analyze: async () => [neko],
     ...overrides,
   };
 }
@@ -33,11 +38,11 @@ describe('CueAnnotator', () => {
   });
 
   it('get returns null for a text that was never prepared', async () => {
-    const tokenize = vi.fn(async () => [neko]);
-    const annotator = new CueAnnotator(makeDeps({ tokenize }));
+    const analyze = vi.fn(async () => [neko]);
+    const annotator = new CueAnnotator(makeDeps({ analyze }));
     expect(annotator.get('x')).toBeNull();
     await settle();
-    expect(tokenize).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
   });
 
   it('notifies subscribers after each annotated text and stops after unsubscribe', async () => {
@@ -57,7 +62,7 @@ describe('CueAnnotator', () => {
     const order: string[] = [];
     const annotator = new CueAnnotator(
       makeDeps({
-        tokenize: async (t) => {
+        analyze: async (t) => {
           order.push(t);
           return [neko];
         },
@@ -74,7 +79,7 @@ describe('CueAnnotator', () => {
     const gate = new Promise<void>((r) => (release = r));
     const annotator = new CueAnnotator(
       makeDeps({
-        tokenize: async (t) => {
+        analyze: async (t) => {
           order.push(t);
           if (t === 'a') await gate;
           return [neko];
@@ -90,11 +95,11 @@ describe('CueAnnotator', () => {
   });
 
   it('does nothing when ready resolves false', async () => {
-    const tokenize = vi.fn(async () => [neko]);
-    const annotator = new CueAnnotator(makeDeps({ ready: async () => false, tokenize }));
+    const analyze = vi.fn(async () => [neko]);
+    const annotator = new CueAnnotator(makeDeps({ ready: async () => false, analyze }));
     annotator.prepare(['a']);
     await settle();
-    expect(tokenize).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
     expect(annotator.get('a')).toBeNull();
   });
 
@@ -112,10 +117,9 @@ describe('CueAnnotator', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const annotator = new CueAnnotator(
       makeDeps({
-        tokenize: async (t) => [{ ...neko, surface: t }],
-        annotate: async (tokens) => {
-          if (['b', 'd'].includes(tokens[0].surface)) throw new Error('nope');
-          return { accents: [1] };
+        analyze: async (t) => {
+          if (['b', 'd'].includes(t)) throw new Error('nope');
+          return [{ ...neko, surface: t }];
         },
       }),
     );
@@ -135,7 +139,7 @@ describe('CueAnnotator', () => {
     const gate = new Promise<void>((r) => (release = r));
     const annotator = new CueAnnotator(
       makeDeps({
-        tokenize: async (t) => {
+        analyze: async (t) => {
           order.push(t);
           await gate;
           return [neko];

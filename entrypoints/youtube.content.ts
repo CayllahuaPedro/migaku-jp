@@ -1,10 +1,12 @@
 import {
   isErrorResult,
   type AnnotateResult,
+  type FindCompoundsResult,
   type ErrorResult,
   type LookupResult,
   type TokenQuery,
 } from '../src/core/messages';
+import { analyzeText } from '../src/core/analyze';
 import { initTokenizer, tokenize } from '../src/core/tokenizer';
 import { DEFAULT_SETTINGS, getSettings, watchSettings, type Settings } from '../src/core/settings';
 import { isToIsolated, watchVideoId } from '../src/surfaces/youtube/bridge';
@@ -39,6 +41,9 @@ const engineReady = createEngineReady(
 );
 
 const annotate = (tokens: TokenQuery[]) => send<AnnotateResult>({ type: 'annotate', tokens });
+const findCompounds = async (forms: string[]) =>
+  (await send<FindCompoundsResult>({ type: 'find-compounds', forms })).found;
+const analyze = (text: string) => analyzeText(text, { tokenize, findCompounds, annotate });
 const lookup = (word: WordRef) => send<LookupResult>({ type: 'lookup', ...word });
 
 async function initialSettings(): Promise<Settings> {
@@ -79,7 +84,7 @@ export default defineContentScript({
         attach: (overlay, primary, secondary) => {
           const video = document.querySelector<HTMLVideoElement>(VIDEO_SELECTOR);
           if (!video) throw new Error('the player video element is gone');
-          const annotator = new CueAnnotator({ ready: engineReady, tokenize, annotate });
+          const annotator = new CueAnnotator({ ready: engineReady, analyze });
           annotator.prepare(primary.map((cue) => cue.text));
           const detach = syncOverlay(video, overlay, primary, secondary, annotator);
           return () => {

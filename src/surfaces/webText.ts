@@ -1,10 +1,8 @@
-import { tokenize } from '../core/tokenizer';
-import { buildRenderTokens } from '../core/annotate';
+import type { RenderToken } from '../core/annotate';
 import { renderTokens } from '../core/render';
 import { PITCH_COLOR_CSS } from '../ui/theme';
 import { linkFontStylesheet } from '../ui/fonts';
 import { hasJapanese } from '../core/kana';
-import type { TokenQuery, AnnotateResult } from '../core/messages';
 
 const SKIP_TAGS = new Set([
   'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT', 'SELECT', 'CODE', 'PRE',
@@ -40,21 +38,14 @@ export function findJapaneseTextNodes(root: Node): Text[] {
 
 export async function parseTextNode(
   node: Text,
-  annotate: (tokens: TokenQuery[]) => Promise<AnnotateResult>,
+  analyze: (text: string) => Promise<RenderToken[]>,
 ): Promise<void> {
   const text = node.data;
-  const tokens = await tokenize(text);
-  const { accents } = await annotate(
-    tokens.map((t) => ({
-      basicForm: t.basicForm,
-      surface: t.surface,
-      reading: t.reading,
-    })),
-  );
+  const tokens = await analyze(text);
   const wrapper = document.createElement('span');
   wrapper.className = 'mjp-parsed';
   wrapper.dataset.mjpOriginal = text;
-  wrapper.append(renderTokens(buildRenderTokens(tokens, accents)));
+  wrapper.append(renderTokens(tokens));
   node.replaceWith(wrapper);
 }
 

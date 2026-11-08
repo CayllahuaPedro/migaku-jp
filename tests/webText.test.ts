@@ -1,27 +1,28 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   findJapaneseTextNodes,
   parseTextNode,
   revertPage,
   injectStyles,
 } from '../src/surfaces/webText';
+import type { RenderToken } from '../src/core/annotate';
 
-vi.mock('../src/core/tokenizer', () => ({
-  tokenize: vi.fn(async (text: string) => {
-    if (text === '猫を飼う') {
-      return [
-        { surface: '猫', reading: 'ネコ', basicForm: '猫', pos: '名詞', posDetail: '一般' },
-        { surface: 'を', reading: 'ヲ', basicForm: 'を', pos: '助詞', posDetail: '一般' },
-        { surface: '飼う', reading: 'カウ', basicForm: '飼う', pos: '動詞', posDetail: '一般' },
-      ];
-    }
-    return [{ surface: text, reading: undefined, basicForm: text, pos: '名詞', posDetail: '一般' }];
-  }),
-}));
+const cat: RenderToken = {
+  surface: '猫',
+  ruby: 'ねこ',
+  pattern: 'atamadaka',
+  basicForm: '猫',
+  reading: 'ねこ',
+};
 
-const annotate = async (tokens: { basicForm: string }[]) => ({
-  accents: tokens.map((t) => (t.basicForm === '猫' ? 1 : null)),
-});
+const analyze = async (text: string): Promise<RenderToken[]> =>
+  text === '猫を飼う'
+    ? [
+        cat,
+        { surface: 'を', ruby: null, pattern: 'unknown', basicForm: 'を' },
+        { surface: '飼う', ruby: 'かう', pattern: 'unknown', basicForm: '飼う', reading: 'かう' },
+      ]
+    : [cat];
 
 describe('webText surface', () => {
   beforeEach(() => {
@@ -38,7 +39,7 @@ describe('webText surface', () => {
   it('parses a node into colored ruby tokens and reverts', async () => {
     document.body.innerHTML = '<p>猫を飼う</p>';
     const node = findJapaneseTextNodes(document.body)[0];
-    await parseTextNode(node, annotate);
+    await parseTextNode(node, analyze);
 
     const parsed = document.querySelector('.mjp-parsed') as HTMLElement;
     expect(parsed).not.toBeNull();
@@ -52,9 +53,42 @@ describe('webText surface', () => {
     expect(document.body.textContent).toContain('猫を飼う');
   });
 
+  it('wraps a merged compound as one token with parts', async () => {
+    const compound = async (): Promise<RenderToken[]> => [
+      {
+        surface: '日本語',
+        ruby: 'にほんご',
+        pattern: 'unknown',
+        basicForm: '日本語',
+        reading: 'にほんご',
+        parts: [
+          { basicForm: '日本', surface: '日本', reading: 'ニホン' },
+          { basicForm: '語', surface: '語', reading: 'ゴ' },
+        ],
+      },
+    ];
+    document.body.innerHTML = '<p>日本語</p>';
+    await parseTextNode(findJapaneseTextNodes(document.body)[0], compound);
+
+    const tokens = document.querySelectorAll<HTMLElement>('.mjp-token');
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].dataset.mjpParts).toBeDefined();
+  });
+
+  it('revert restores the original text after a merged annotation', async () => {
+    const compound = async (): Promise<RenderToken[]> => [
+      { ...cat, surface: '日本語', parts: [{ basicForm: '日本', surface: '日本' }] },
+    ];
+    document.body.innerHTML = '<p>日本語</p>';
+    await parseTextNode(findJapaneseTextNodes(document.body)[0], compound);
+    revertPage(document.body);
+    expect(document.querySelector('p')!.textContent).toBe('日本語');
+    expect(document.querySelector('.mjp-parsed')).toBeNull();
+  });
+
   it('skips already parsed nodes on a second pass', async () => {
     document.body.innerHTML = '<p>猫</p>';
-    await parseTextNode(findJapaneseTextNodes(document.body)[0], annotate);
+    await parseTextNode(findJapaneseTextNodes(document.body)[0], analyze);
     expect(findJapaneseTextNodes(document.body)).toEqual([]);
   });
 
