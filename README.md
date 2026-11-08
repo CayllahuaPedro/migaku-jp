@@ -54,6 +54,8 @@ player, synced to the video:
 - Videos without Japanese, live streams, Shorts and embeds are left untouched.
 - The overlay scales with the player (theater, fullscreen), moves up when the controls show,
   and hides during ads.
+- Words on the Japanese line are pitch-coloured and clickable: a click opens the dictionary
+  popup. An optional setting pauses the video while the popup is open.
 
 ## Architecture
 
@@ -142,7 +144,7 @@ Load `.output/chrome-mv3` as an unpacked extension at `chrome://extensions`.
 ## Tests
 
 ```bash
-npm test    # 160 unit tests across 23 files — vitest, fake-indexeddb, happy-dom
+npm test    # 200 unit tests across 25 files — vitest, fake-indexeddb, happy-dom
 npm run e2e # smoke test in a real Chrome instance with the extension loaded
 ```
 
@@ -162,7 +164,7 @@ Planned:
   the dictionary.
 - Batched annotation — currently one message per text node, which is slow on large pages.
 - Service-worker keepalive and progress reporting during the initial 44 MB import.
-- Clickable words, furigana and pitch colouring inside the subtitles.
+- Furigana in the subtitles and word frequency in the popup.
 - Dual subtitles on Netflix (phase 3), reusing the same overlay.
 - Anki export.
 
