@@ -9,15 +9,23 @@ export interface TokenQuery {
 export type Msg =
   | { type: 'ensure-imported' }
   | { type: 'annotate'; tokens: TokenQuery[] }
-  | ({ type: 'lookup' } & TokenQuery)
+  | { type: 'find-compounds'; forms: string[] }
+  | ({ type: 'lookup' } & TokenQuery & { parts?: TokenQuery[] })
   | { type: 'parse-page' }
   | { type: 'revert-page' };
 
 export interface AnnotateResult { accents: (number | null)[] }
+export interface FindCompoundsResult { found: Record<string, string> }
+export interface PartResult {
+  word: string;
+  reading?: string;
+  entries: DictEntry[];
+}
 export interface LookupResult {
   entries: DictEntry[];
   accentPos: number | null;
   posTags: PosTagMap;
+  parts?: PartResult[];
 }
 export interface ErrorResult { error: string }
 

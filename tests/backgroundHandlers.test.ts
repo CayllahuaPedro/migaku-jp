@@ -14,8 +14,29 @@ const assets = {
       forms: ['飼う', 'かう'],
       senses: [{ pos: ['v5u'], gloss: ['to keep (a pet)'] }],
     },
+    {
+      id: '2',
+      kanji: ['食肉目'],
+      kana: ['しょくにくもく'],
+      forms: ['食肉目', 'しょくにくもく'],
+      senses: [{ pos: ['n'], gloss: ['Carnivora'] }],
+    },
+    {
+      id: '3',
+      kanji: ['食肉'],
+      kana: ['しょくにく'],
+      forms: ['食肉', 'しょくにく'],
+      senses: [{ pos: ['n'], gloss: ['meat'] }],
+    },
+    {
+      id: '4',
+      kanji: [],
+      kana: ['ことば'],
+      forms: ['ことば'],
+      senses: [{ pos: ['n'], gloss: ['word'] }],
+    },
   ] as DictEntry[],
-  pitch: { '飼う|かう': 1, 飼う: 1 },
+  pitch: { '飼う|かう': 1, 飼う: 1, '食肉目|しょくにくもく': 4 },
 };
 const loadAssets = async () => assets;
 const loadPosTags = async () => ({
@@ -62,5 +83,59 @@ describe('handleBackgroundMessage', () => {
     expect(res.entries[0].senses[0].gloss).toEqual(['to keep (a pet)']);
     expect(res.accentPos).toBe(1);
     expect(res.posTags).toEqual({ v5u: "Godan verb with 'u' ending" });
+  });
+
+  it('find-compounds returns existing forms with their JMdict reading', async () => {
+    const res = await handleBackgroundMessage(
+      db,
+      { type: 'find-compounds', forms: ['食肉目', '肉目', 'ことば'] },
+      loadAssets,
+      loadPosTags,
+    );
+    expect(res).toEqual({ found: { 食肉目: 'しょくにくもく', ことば: 'ことば' } });
+  });
+
+  it('find-compounds with no forms returns an empty map', async () => {
+    const res = await handleBackgroundMessage(
+      db,
+      { type: 'find-compounds', forms: [] },
+      loadAssets,
+      loadPosTags,
+    );
+    expect(res).toEqual({ found: {} });
+  });
+
+  it('lookup with parts returns part entries in the same response', async () => {
+    const res = (await handleBackgroundMessage(
+      db,
+      {
+        type: 'lookup',
+        surface: '食肉目',
+        basicForm: '食肉目',
+        reading: 'ショクニクモク',
+        parts: [
+          { surface: '食肉', basicForm: '食肉', reading: 'ショクニク' },
+          { surface: '目', basicForm: '目', reading: 'メ' },
+        ],
+      },
+      loadAssets,
+      loadPosTags,
+    )) as LookupResult;
+    expect(res.accentPos).toBe(4);
+    expect(res.entries.map((e) => e.id)).toContain('2');
+    expect(res.parts).toEqual([
+      { word: '食肉', reading: 'しょくにく', entries: [expect.objectContaining({ id: '3' })] },
+      { word: '目', reading: 'め', entries: [] },
+    ]);
+  });
+
+  it('lookup without parts has no parts field', async () => {
+    const res = (await handleBackgroundMessage(
+      db,
+      { type: 'lookup', basicForm: '飼う', surface: '飼っ', reading: 'カッ' },
+      loadAssets,
+      loadPosTags,
+    )) as LookupResult;
+    expect('parts' in res).toBe(false);
   });
 });

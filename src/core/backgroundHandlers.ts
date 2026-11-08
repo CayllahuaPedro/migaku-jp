@@ -1,17 +1,32 @@
 import { isImported, importData, lookupEntries, getAccent } from './db';
 import { katakanaToHiragana } from './kana';
-import type { AnnotateResult, ErrorResult, LookupResult, Msg } from './messages';
+import type {
+  AnnotateResult,
+  ErrorResult,
+  FindCompoundsResult,
+  LookupResult,
+  Msg,
+  TokenQuery,
+} from './messages';
 import type { DictEntry, PitchMap, PosTagMap } from './types';
 
 type AssetLoader = () => Promise<{ entries: DictEntry[]; pitch: PitchMap }>;
 type PosTagLoader = () => Promise<PosTagMap>;
+
+async function lookupByBasicFormOrSurface(db: IDBDatabase, query: TokenQuery) {
+  const entries = await lookupEntries(db, query.basicForm);
+  if (entries.length === 0 && query.surface !== query.basicForm) {
+    return lookupEntries(db, query.surface);
+  }
+  return entries;
+}
 
 export async function handleBackgroundMessage(
   db: IDBDatabase,
   msg: Msg,
   loadAssets: AssetLoader,
   loadPosTags: PosTagLoader,
-):Promise<{ ok: true } | AnnotateResult | LookupResult | ErrorResult | undefined> {
+):Promise<{ ok: true } | AnnotateResult | FindCompoundsResult | LookupResult | ErrorResult | undefined> {
   switch (msg.type) {
     case 'ensure-imported': {
       if (!(await isImported(db))) {
@@ -32,11 +47,18 @@ export async function handleBackgroundMessage(
       );
       return { accents };
     }
-    case 'lookup': {
-      let entries = await lookupEntries(db, msg.basicForm);
-      if (entries.length === 0 && msg.surface !== msg.basicForm) {
-        entries = await lookupEntries(db, msg.surface);
+    case 'find-compounds': {
+      const matches = await Promise.all(
+        msg.forms.map(async (form) => [form, (await lookupEntries(db, form))[0]] as const),
+      );
+      const found: Record<string, string> = {};
+      for (const [form, entry] of matches) {
+        if (entry) found[form] = entry.kana[0] ?? form;
       }
+      return { found };
+    }
+    case 'lookup': {
+      const entries = await lookupByBasicFormOrSurface(db, msg);
       const accentPos = await getAccent(
         db,
         msg.basicForm,
@@ -49,7 +71,15 @@ export async function handleBackgroundMessage(
           .filter((code) => code in allPosTags)
           .map((code) => [code, allPosTags[code]]),
       );
-      return { entries, accentPos, posTags };
+      if (!msg.parts) return { entries, accentPos, posTags };
+      const parts = await Promise.all(
+        msg.parts.map(async (part) => ({
+          word: part.basicForm,
+          reading: part.reading ? katakanaToHiragana(part.reading) : undefined,
+          entries: await lookupByBasicFormOrSurface(db, part),
+        })),
+      );
+      return { entries, accentPos, posTags, parts };
     }
     default:
       return undefined;
