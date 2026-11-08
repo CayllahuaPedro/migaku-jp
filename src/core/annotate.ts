@@ -2,6 +2,7 @@ import type { JpToken } from './tokenizer';
 import { classifyPitch, type PitchPattern } from './pitch';
 import { furigana } from './furigana';
 import { katakanaToHiragana } from './kana';
+import type { TokenQuery } from './messages';
 
 export interface RenderToken {
   surface: string;
@@ -9,6 +10,7 @@ export interface RenderToken {
   pattern: PitchPattern;
   basicForm: string;
   reading?: string;
+  parts?: TokenQuery[];
 }
 
 export function buildRenderTokens(
@@ -24,6 +26,7 @@ export function buildRenderTokens(
       pattern: reading ? classifyPitch(reading, accent) : 'unknown',
       basicForm: t.basicForm,
       reading,
+      ...(t.parts && { parts: t.parts }),
     };
   });
 }

@@ -13,6 +13,7 @@ export function renderTokens(tokens: RenderToken[]): DocumentFragment {
     span.dataset.mjpSurface = t.surface;
     span.dataset.mjpBasicForm = t.basicForm;
     if (t.reading) span.dataset.mjpReading = t.reading;
+    if (t.parts) span.dataset.mjpParts = JSON.stringify(t.parts);
     if (t.ruby) {
       const ruby = document.createElement('ruby');
       ruby.append(t.surface);

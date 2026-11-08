@@ -26,4 +26,16 @@ describe('buildRenderTokens', () => {
     );
     expect(out[0].pattern).toBe('unknown');
   });
+
+  it('carries parts through', () => {
+    const parts = [
+      { surface: '食肉', basicForm: '食肉', reading: 'ショクニク' },
+      { surface: '目', basicForm: '目', reading: 'モク' },
+    ];
+    const out = buildRenderTokens(
+      [{ surface: '食肉目', reading: 'ショクニクモク', basicForm: '食肉目', pos: '名詞', posDetail: '複合', parts }],
+      [4],
+    );
+    expect(out[0].parts).toEqual(parts);
+  });
 });

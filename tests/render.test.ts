@@ -27,4 +27,20 @@ describe('renderTokens', () => {
     expect(div.querySelector('ruby')).toBeNull();
     expect(div.querySelector('span.mjp-token')!.textContent).toBe('ねこ');
   });
+
+  it('renders data-mjp-parts as JSON for merged tokens and omits it otherwise', () => {
+    const parts = [
+      { surface: '食肉', basicForm: '食肉', reading: 'ショクニク' },
+      { surface: '目', basicForm: '目', reading: 'モク' },
+    ];
+    const frag = renderTokens([
+      { surface: '食肉目', ruby: null, pattern: 'unknown', basicForm: '食肉目', parts },
+      { surface: '猫', ruby: null, pattern: 'unknown', basicForm: '猫' },
+    ]);
+    const div = document.createElement('div');
+    div.append(frag);
+    const [merged, plain] = [...div.querySelectorAll<HTMLElement>('span.mjp-token')];
+    expect(JSON.parse(merged.dataset.mjpParts!)).toEqual(parts);
+    expect(plain.dataset.mjpParts).toBeUndefined();
+  });
 });
