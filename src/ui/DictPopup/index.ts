@@ -13,11 +13,15 @@ export class DictPopup {
     parent.append(this.host);
   }
 
-  show(anchor: DOMRect, data: PopupData): void {
+  show(anchor: DOMRect, data: PopupData, placement: 'below' | 'above' = 'below'): void {
     this.root.innerHTML = `<style>${POPUP_CSS}</style>${renderPopupHtml(data)}`;
     const popup = this.root.querySelector('.mjp-popup') as HTMLElement;
     const left = Math.max(8, Math.min(anchor.left, window.innerWidth - popup.offsetWidth - 8));
-    popup.style.top = `${anchor.bottom + 8}px`;
+    const top =
+      placement === 'above'
+        ? Math.max(8, anchor.top - popup.offsetHeight - 8)
+        : anchor.bottom + 8;
+    popup.style.top = `${top}px`;
     popup.style.left = `${left}px`;
   }
 

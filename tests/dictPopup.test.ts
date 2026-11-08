@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderPopupHtml } from '../src/ui/DictPopup/html';
 import { DictPopup } from '../src/ui/DictPopup';
 
@@ -102,5 +102,16 @@ describe('DictPopup', () => {
     expect(host.shadowRoot!.querySelector('.mjp-popup')).not.toBeNull();
     popup.hide();
     expect(host.shadowRoot!.querySelector('.mjp-popup')).toBeNull();
+  });
+  it('places the popup above the anchor when asked', () => {
+    const popup = new DictPopup(document.body);
+    const anchor = { top: 500, bottom: 516, left: 10, right: 40 } as DOMRect;
+    const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(100);
+    popup.show(anchor, data, 'above');
+    const host = [...document.querySelectorAll('.mjp-popup-host')].at(-1) as HTMLElement;
+    expect((host.shadowRoot!.querySelector('.mjp-popup') as HTMLElement).style.top).toBe('392px');
+    popup.show(anchor, data);
+    expect((host.shadowRoot!.querySelector('.mjp-popup') as HTMLElement).style.top).toBe('524px');
+    spy.mockRestore();
   });
 });
