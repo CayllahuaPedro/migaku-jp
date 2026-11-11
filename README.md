@@ -1,5 +1,10 @@
 # Yabai-JP
 
+> **This repository is archived.** The extension now lives in the
+> [Ippo monorepo](https://github.com/CayllahuaPedro/ippo) under
+> [`extension/`](https://github.com/CayllahuaPedro/ippo/tree/main/extension) as **Ippo for Chrome**,
+> with its full commit history. New work happens there.
+
 A Chrome extension for learning Japanese from real content:
 
 - **Web pages** — annotates Japanese text with **furigana** and **pitch-accent colouring**,
